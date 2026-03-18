@@ -30,8 +30,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { auth, db } from "./firebase";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
+import { db } from "./firebase";
 import { collection, doc, onSnapshot, writeBatch, setDoc, getDocs } from "firebase/firestore";
 
 const OPERACOES: Record<string, string[]> = {
@@ -107,8 +106,6 @@ interface SyncData {
 }
 
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [authReady, setAuthReady] = useState(false);
   const [data, setData] = useState<SyncData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,31 +150,6 @@ export default function App() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [viaSearch, setViaSearch] = useState("");
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setAuthReady(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogin = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login error:", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
 
   const handleCopy = (cidade: string, motorista: string | null, isRede: boolean) => {
     const obs = observacoes[cidade];
@@ -252,8 +224,6 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    if (!user || !authReady) return;
-
     const assignmentsRef = collection(db, `schedules/${selectedDate}/assignments`);
     
     setLoading(true);
@@ -316,10 +286,9 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [selectedDate, user, authReady]);
+  }, [selectedDate]);
 
   const updateAssignment = async (cidade: string, updates: any) => {
-    if (!user) return;
     try {
       const docRef = doc(db, `schedules/${selectedDate}/assignments/${cidade}`);
       await setDoc(docRef, { cidade, ...updates }, { merge: true });
@@ -336,7 +305,7 @@ export default function App() {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
 
     setUploading(true);
     setError(null);
@@ -455,33 +424,6 @@ export default function App() {
     progresso: progressoValue
   };
 
-  if (!authReady) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#F4F5F7] text-[#1A1A1A]">Carregando...</div>;
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F4F5F7] text-[#1A1A1A] font-sans">
-        <div className="bg-white p-10 rounded-3xl shadow-lg max-w-md w-full text-center">
-          <div className="flex justify-center mb-6">
-            <div className="p-3 rounded-2xl bg-black">
-              <img src="https://picsum.photos/seed/rhyno/48/48" alt="Logo" className="w-12 h-12 object-contain" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-black tracking-tighter mb-2">RHYNO <span className="text-[#FF5722]">CONTROL</span></h1>
-          <p className="text-gray-500 mb-8 font-medium">Faça login para acessar o painel operacional.</p>
-          <button 
-            onClick={handleLogin}
-            className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#FF5722]/20 active:scale-95"
-          >
-            <User size={20} />
-            Entrar com Google
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-[#0A0A0A] text-[#E0E0E0]" : "bg-[#F4F5F7] text-[#1A1A1A]"} font-sans`}>
       {/* Header */}
@@ -530,16 +472,6 @@ export default function App() {
             className={`p-2 rounded-full transition-colors ${isDarkMode ? "bg-white/5 hover:bg-white/10 text-yellow-400" : "bg-black/5 hover:bg-black/10 text-indigo-600"}`}
           >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden ${isDarkMode ? "bg-[#FF5722] text-white" : "bg-black text-white"}`}>
-            {user?.photoURL ? <img src={user.photoURL} alt="User" /> : "DP"}
-          </div>
-          <button 
-            onClick={handleLogout}
-            className={`p-2 rounded-full transition-colors ${isDarkMode ? "hover:bg-white/10 text-rose-400" : "hover:bg-black/10 text-rose-600"}`}
-            title="Sair"
-          >
-            <LogOut size={20} />
           </button>
         </div>
       </header>

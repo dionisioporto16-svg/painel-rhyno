@@ -72,10 +72,10 @@ service cloud.firestore {
     }
 
     match /schedules/{date}/assignments/{cidade} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidAssignment(request.resource.data);
-      allow update: if isAuthenticated() && isValidAssignment(request.resource.data);
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow create: if isValidAssignment(request.resource.data);
+      allow update: if isValidAssignment(request.resource.data);
+      allow delete: if true;
     }
   }
 }
