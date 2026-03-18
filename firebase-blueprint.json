@@ -12,7 +12,9 @@
         "isRede": { "type": "boolean" },
         "intervaloOk": { "type": "boolean" },
         "observacao": { "type": "string" },
-        "encontrado": { "type": "boolean" }
+        "encontrado": { "type": "boolean" },
+        "kmInicial": { "type": "number" },
+        "kmFinal": { "type": "number" }
       },
       "required": ["cidade"]
     }

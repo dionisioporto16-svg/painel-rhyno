@@ -26,7 +26,8 @@ import {
   Truck,
   Pencil,
   LogOut,
-  BarChart3
+  BarChart3,
+  Gauge
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -133,6 +134,8 @@ interface Result {
   encontrado: boolean;
   status: string | null;
   coordenador?: string | null;
+  kmInicial?: number | null;
+  kmFinal?: number | null;
 }
 
 interface SyncData {
@@ -205,6 +208,7 @@ export default function App() {
     return "pendentes";
   });
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [editingKM, setEditingKM] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem("painel_sub_tab", painelSubTab);
@@ -312,7 +316,9 @@ export default function App() {
           motorista: d.motorista || null,
           encontrado: d.encontrado || false,
           status: d.status || null,
-          coordenador: d.coordenador || null
+          coordenador: d.coordenador || null,
+          kmInicial: d.kmInicial || null,
+          kmFinal: d.kmFinal || null
         });
 
         if (d.intervaloOk) newIntervalosOk[cidade] = true;
@@ -531,7 +537,6 @@ export default function App() {
         <nav className="hidden md:flex gap-8">
           {[
             { icon: LayoutDashboard, label: "Painel", id: "painel" },
-            { icon: ClipboardCheck, label: "Informações de turno", id: "informacoes_turno" },
             { icon: Truck, label: "VIA", id: "via" },
           ].map((item) => (
             <button 
@@ -992,6 +997,21 @@ export default function App() {
                               <Pencil size={16} className="text-gray-400 hover:text-[#FF5722]" />
                             </motion.button>
                           )}
+                          {!isRede && (
+                            <motion.button 
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => setEditingKM(result.cidade)}
+                              className={`p-1.5 rounded-lg transition-all ${
+                                (result.kmInicial || result.kmFinal)
+                                  ? "bg-[#FF5722] text-white shadow-lg shadow-[#FF5722]/20"
+                                  : "bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-[#FF5722]"
+                              }`}
+                              title="Registrar KM"
+                            >
+                              <Gauge size={16} />
+                            </motion.button>
+                          )}
                         </div>
                       )}
                       {displayStatus !== "S" && displayStatus !== "REDE" && (
@@ -1158,119 +1178,6 @@ export default function App() {
           </AnimatePresence>
         </div>
         </motion.div>
-        ) : activeTab === "informacoes_turno" ? (
-          <motion.div 
-            key="informacoes_turno"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="flex flex-col gap-6"
-          >
-            <div className="flex flex-col gap-2 mb-4">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-2 h-2 rounded-full bg-[#FF5722] animate-pulse" />
-                <span className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-50">Registro Diário</span>
-              </div>
-              <h2 className="text-4xl lg:text-5xl font-black tracking-tighter">
-                Informações de turno
-              </h2>
-            </div>
-            
-            <div className={`p-8 rounded-3xl border shadow-sm ${isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"}`}>
-              <p className={`mb-8 font-medium ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                Acompanhamento de rotinas e informações das bases:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.keys(OPERACOES).map(cidade => (
-                  <div key={cidade} className={`flex flex-col gap-3 p-5 rounded-2xl border transition-colors ${isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5"}`}>
-                    <div className="flex items-center gap-5">
-                      <div className="flex flex-col gap-1.5">
-                        <h4 className={`text-lg font-black tracking-tighter leading-none ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                          {formatCityName(cidade)}
-                        </h4>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${isDarkMode ? "bg-white/10 border-white/10 text-gray-300" : "bg-black/5 border-black/10 text-gray-700"}`}>
-                            {OPERACAO_METADATA[selectedTurno]?.[cidade]?.sigla || "OPS"}
-                          </span>
-                          {OPERACAO_METADATA[selectedTurno]?.[cidade]?.cc && (
-                            <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${isDarkMode ? "bg-white/5 border-white/10 text-gray-500" : "bg-black/5 border-black/10 text-gray-400"}`}>
-                              {OPERACAO_METADATA[selectedTurno]?.[cidade]?.cc}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col border-l pl-4 border-white/10">
-                        <span className="text-[10px] font-bold uppercase opacity-40 tracking-widest mb-0.5">Horário</span>
-                        <span className="text-xs font-black tracking-tight">{OPERACAO_METADATA[selectedTurno]?.[cidade]?.horario || "--:--"}</span>
-                      </div>
-                    </div>
-                    <div className="relative mt-2">
-                      <textarea 
-                        placeholder={`Observações para ${cidade}...`}
-                        value={observacoes[cidade] || ""}
-                        onChange={(e) => setObservacoes(prev => ({ ...prev, [cidade]: e.target.value }))}
-                        className={`w-full bg-transparent border rounded-xl p-3 pr-10 pb-10 text-sm focus:outline-none transition-colors resize-none h-24 ${
-                          isDarkMode ? "border-white/10 focus:border-[#FF5722]" : "border-black/10 focus:border-[#FF5722]"
-                        }`}
-                      />
-                      <button
-                        onClick={() => {
-                          const result = data?.results?.find(r => r.cidade === cidade);
-                          const isRede = result ? (manualRede[cidade] !== undefined ? manualRede[cidade] : result.status === "REDE") : false;
-                          handleCopy(cidade, result?.encontrado ? result.motorista : null, isRede);
-                        }}
-                        className={`absolute right-2 bottom-2 p-1.5 rounded-md transition-colors ${
-                          isDarkMode ? "bg-white/10 hover:bg-white/20 text-white" : "bg-black/5 hover:bg-black/10 text-black"
-                        }`}
-                        title="Copiar observação"
-                      >
-                        <Copy size={14} />
-                      </button>
-                      <AnimatePresence>
-                        {copiedId === cidade && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 5 }}
-                            className="absolute right-10 bottom-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1.5 rounded shadow-sm whitespace-nowrap z-10"
-                          >
-                            Copiado com sucesso :)
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8 flex justify-end relative">
-                <button
-                  onClick={handleCopyAllObservations}
-                  disabled={Object.values(observacoes).filter(obs => (obs as string).trim() !== "").length === 0}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isDarkMode 
-                      ? "bg-white/10 hover:bg-white/20 text-white" 
-                      : "bg-black/5 hover:bg-black/10 text-black"
-                  }`}
-                >
-                  <Copy size={18} />
-                  Copiar Todas as Observações
-                </button>
-                <AnimatePresence>
-                  {copiedId === "all_obs" && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 5 }}
-                      className="absolute right-0 -top-10 bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded shadow-sm whitespace-nowrap z-10"
-                    >
-                      Todas as observações copiadas!
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </motion.div>
         ) : activeTab === "via" ? (
           <motion.div 
             key="via"
@@ -1379,6 +1286,115 @@ export default function App() {
           </div>
         </div>
       </motion.footer>
+
+      {/* KM Modal */}
+      <AnimatePresence>
+        {editingKM && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingKM(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden ${
+                isDarkMode ? "bg-[#141414] border border-white/10" : "bg-white border border-black/5"
+              }`}
+            >
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#FF5722]/10 flex items-center justify-center">
+                      <Gauge className="text-[#FF5722]" size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black tracking-tight">Registro de KM</h3>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                        {editingKM}
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setEditingKM(null)}
+                    className={`p-2 rounded-full transition-colors ${
+                      isDarkMode ? "hover:bg-white/10 text-gray-400" : "hover:bg-black/5 text-gray-500"
+                    }`}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">KM Inicial</label>
+                      <input 
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoFocus
+                        value={data?.results.find(r => r.cidade === editingKM)?.kmInicial || ""}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          updateAssignment(editingKM, { kmInicial: val ? parseInt(val) : null });
+                        }}
+                        placeholder="0"
+                        className={`w-full bg-transparent border-b-2 py-2 text-2xl font-black outline-none transition-colors ${
+                          isDarkMode ? "border-white/10 focus:border-[#FF5722] text-white" : "border-black/10 focus:border-[#FF5722] text-black"
+                        }`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">KM Final</label>
+                      <input 
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={data?.results.find(r => r.cidade === editingKM)?.kmFinal || ""}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          updateAssignment(editingKM, { kmFinal: val ? parseInt(val) : null });
+                        }}
+                        placeholder="0"
+                        className={`w-full bg-transparent border-b-2 py-2 text-2xl font-black outline-none transition-colors ${
+                          isDarkMode ? "border-white/10 focus:border-[#FF5722] text-white" : "border-black/10 focus:border-[#FF5722] text-black"
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={`p-6 rounded-3xl flex items-center justify-between ${
+                    isDarkMode ? "bg-white/5" : "bg-black/5"
+                  }`}>
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Total Percorrido</span>
+                    <div className="text-right">
+                      <span className={`text-3xl font-black tracking-tighter ${isDarkMode ? "text-white" : "text-black"}`}>
+                        {(() => {
+                          const res = data?.results.find(r => r.cidade === editingKM);
+                          return (res?.kmFinal && res?.kmInicial) ? (res.kmFinal - res.kmInicial).toLocaleString() : "0";
+                        })()}
+                      </span>
+                      <span className="ml-1 text-sm font-bold text-[#FF5722]">km</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setEditingKM(null)}
+                    className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-[#FF5722]/20 transition-all active:scale-[0.98]"
+                  >
+                    Confirmar Registro
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

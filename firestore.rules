@@ -23,6 +23,8 @@ service cloud.firestore {
     //   - intervaloOk: boolean (optional)
     //   - observacao: string (optional)
     //   - encontrado: boolean (optional)
+    //   - kmInicial: number (optional)
+    //   - kmFinal: number (optional)
     //
     // ===============================================================
 
@@ -51,7 +53,9 @@ service cloud.firestore {
              (!('isRede' in data) || data.isRede == null || data.isRede is bool) &&
              (!('intervaloOk' in data) || data.intervaloOk == null || data.intervaloOk is bool) &&
              (!('observacao' in data) || data.observacao == null || (data.observacao is string && data.observacao.size() < 1000)) &&
-             (!('encontrado' in data) || data.encontrado == null || data.encontrado is bool);
+             (!('encontrado' in data) || data.encontrado == null || data.encontrado is bool) &&
+             (!('kmInicial' in data) || data.kmInicial == null || data.kmInicial is number) &&
+             (!('kmFinal' in data) || data.kmFinal == null || data.kmFinal is number);
     }
 
     function isValidUser(data) {
