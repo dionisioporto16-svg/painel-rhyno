@@ -987,31 +987,33 @@ export default function App() {
                           }`}>
                             {displayMotorista}
                           </h3>
-                          {!isRede && (
-                            <motion.button 
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setEditingDriver(result.cidade)}
-                              className="opacity-0 group-hover/driver:opacity-100 transition-opacity shrink-0"
-                            >
-                              <Pencil size={16} className="text-gray-400 hover:text-[#FF5722]" />
-                            </motion.button>
-                          )}
-                          {!isRede && (
-                            <motion.button 
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => setEditingKM(result.cidade)}
-                              className={`p-1.5 rounded-lg transition-all ${
-                                (result.kmInicial || result.kmFinal)
-                                  ? "bg-[#FF5722] text-white shadow-lg shadow-[#FF5722]/20"
-                                  : "bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-[#FF5722]"
-                              }`}
-                              title="Registrar KM"
-                            >
-                              <Gauge size={16} />
-                            </motion.button>
-                          )}
+                          <div className="flex items-center gap-1.5 ml-2">
+                            {!isRede && (
+                              <motion.button 
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => setEditingDriver(result.cidade)}
+                                className="opacity-0 group-hover/driver:opacity-100 transition-all shrink-0 text-gray-400 hover:text-[#FF5722]"
+                              >
+                                <Pencil size={14} />
+                              </motion.button>
+                            )}
+                            {!isRede && (
+                              <motion.button 
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => setEditingKM(result.cidade)}
+                                className={`transition-all shrink-0 ${
+                                  (result.kmInicial || result.kmFinal)
+                                    ? "text-[#FF5722] opacity-100"
+                                    : "opacity-0 group-hover/driver:opacity-100 text-gray-400 hover:text-[#FF5722]"
+                                }`}
+                                title="Registrar KM"
+                              >
+                                <Gauge size={14} />
+                              </motion.button>
+                            )}
+                          </div>
                         </div>
                       )}
                       {displayStatus !== "S" && displayStatus !== "REDE" && (
