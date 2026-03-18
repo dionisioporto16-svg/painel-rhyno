@@ -272,8 +272,8 @@ export default function App() {
     updateAssignment(cidade, { intervaloOk: newVal });
   };
 
-  const toggleManualRede = (cidade: string) => {
-    const isNowRede = !manualRede[cidade];
+  const toggleManualRede = (cidade: string, currentIsRede: boolean) => {
+    const isNowRede = !currentIsRede;
     const updates: any = { isRede: isNowRede };
     if (isNowRede) {
       updates.intervaloOk = true;
@@ -321,8 +321,8 @@ export default function App() {
           kmFinal: d.kmFinal || null
         });
 
-        if (d.intervaloOk) newIntervalosOk[cidade] = true;
-        if (d.isRede) newManualRede[cidade] = true;
+        if (d.intervaloOk !== undefined) newIntervalosOk[cidade] = d.intervaloOk;
+        if (d.isRede !== undefined) newManualRede[cidade] = d.isRede;
         if (d.motorista && d.encontrado === false) newManualDrivers[cidade] = d.motorista; // If manually edited
         if (d.coordenador) newManualCoordinators[cidade] = d.coordenador;
         if (d.observacao) newObservacoes[cidade] = d.observacao;
@@ -1079,14 +1079,14 @@ export default function App() {
 
                   <div className="mt-auto space-y-5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleManualRede(result.cidade)}>
+                      <div className="flex items-center gap-2 cursor-pointer group" onClick={() => toggleManualRede(result.cidade, isRede)}>
                         <button
-                          className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none ${isRede ? 'bg-[#FF5722]' : isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 focus:outline-none ${isRede ? 'bg-[#FF5722] shadow-[0_0_10px_rgba(255,87,34,0.4)]' : isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`}
                         >
-                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isRede ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${isRede ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
                         </button>
-                        <span className={`text-[10px] font-bold uppercase tracking-widest transition-opacity ${isRede ? 'opacity-100 text-[#FF5722]' : 'opacity-50 hover:opacity-100'}`}>
-                          Usar Rede
+                        <span className={`text-[11px] font-bold uppercase tracking-widest transition-all duration-300 ${isRede ? 'text-[#FF5722]' : 'opacity-50 group-hover:opacity-100'}`}>
+                          {isRede ? 'REDE ATIVA' : 'USAR REDE'}
                         </span>
                       </div>
 

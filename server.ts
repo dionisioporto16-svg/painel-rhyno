@@ -44,7 +44,7 @@ const OPERACOES_POR_TURNO: Record<string, Record<string, string[]>> = {
     "ARARAQUARA": ["alexandra luzia", "kelly cristina", "valquiria da silva", "carlos alberto"],
     "EMBU GUAÇU": ["edvaldo nunes", "adison ferreira"],
     "RIO CLARO": ["jose de claudio", "paulo cesar", "osmar de souza", "ubirajara"],
-    "SIMONSEN": ["devani alves", "adriana da silva", "joao delcino"],
+    "SIMONSEN": ["devani alves", "adriana da silva"],
     "SANTA ADÉLIA": ["renato nunes", "pedro oscar", "jamil mattioli", "warley durante"],
     "SÃO JOSÉ DO RIO PRETO": ["simone regina", "grace carryne", "antonio fabio", "fabio alex", "simone"],
     "CHAPADÃO DO SUL": ["luciano", "antonio reinaldo", "antonio reinado", "robson arnaldo"],
@@ -54,12 +54,16 @@ const OPERACOES_POR_TURNO: Record<string, Record<string, string[]>> = {
 };
 
 const CIDADE_ALIASES: Record<string, string[]> = {
-  "SÃO JOSÉ DO RIO PRETO": ["sao jose", "sjrp", "rio preto", "rp", "s.j.r.p", "sp"],
-  "RONDONÓPOLIS": ["rondonopolis", "roo", "rondon", "mt", "ro", "rondono", "rondonopolis-mt"],
-  "SANTA FÉ DO SUL": ["santa fe", "sfs", "st fe", "sta fe", "santa fe do sul", "santa fe sul"],
-  "ARARAQUARA": ["aqa", "araraquara", "ara"],
-  "CHAPADÃO DO SUL": ["chapadao", "ms", "chapadão"],
-  "SIMONSEN": ["simonsen", "simonsem", "simons"],
+  "SÃO JOSÉ DO RIO PRETO": ["sao jose", "sjrp", "rio preto", "rp", "s.j.r.p", "sp", "zru"],
+  "RONDONÓPOLIS": ["rondonopolis", "roo", "rondon", "mt", "ro", "rondono", "rondonopolis-mt", "tro"],
+  "SANTA FÉ DO SUL": ["santa fe", "sfs", "st fe", "sta fe", "santa fe do sul", "santa fe sul", "zsf"],
+  "ARARAQUARA": ["aqa", "araraquara", "ara", "zto", "zar"],
+  "CHAPADÃO DO SUL": ["chapadao", "ms", "chapadão", "tcs"],
+  "SIMONSEN": ["simonsen", "simonsem", "simons", "zzm"],
+  "EMBU GUAÇU": ["embu", "embu guacu", "zem"],
+  "RIO CLARO": ["rio claro", "zrx"],
+  "SANTA ADÉLIA": ["santa adelia", "zsd"],
+  "SÃO VICENTE": ["sao vicente", "zpt"],
 };
 
 const app = express();
