@@ -14,17 +14,43 @@ const xlsx = require("xlsx");
 const { readFile, utils, SSF } = xlsx;
 
 // Configuração das Operações (Cidades e Motoristas Chave)
-const OPERACOES: Record<string, string[]> = {
-  "SANTA FÉ DO SUL": ["domingos neto", "domingos ferrantes", "rogerio molina", "rogerio"],
-  "ARARAQUARA": ["alexandra luzia", "kelly cristina", "valquiria da silva", "carlos alberto"],
-  "EMBU GUAÇU": ["edvaldo nunes", "adison ferreira"],
-  "RIO CLARO": ["jose de claudio", "paulo cesar", "osmar de souza", "ubirajara"],
-  "SIMONSEN": ["devani alves", "adriana da silva", "joao delcino"],
-  "SANTA ADÉLIA": ["renato nunes", "pedro oscar", "jamil mattioli", "warley durante"],
-  "SÃO JOSÉ DO RIO PRETO": ["simone regina", "grace carryne", "antonio fabio", "fabio alex", "simone"],
-  "CHAPADÃO DO SUL": ["luciano", "antonio reinaldo", "antonio reinado", "robson arnaldo"],
-  "RONDONÓPOLIS": ["jonh lennon", "jhon lennon", "john lennon", "esmeraldo de jesus", "esmeraldo", "john lenon"],
-  "SÃO VICENTE": ["bruno frank", "alberico de souza", "alberico"],
+const OPERACOES_POR_TURNO: Record<string, Record<string, string[]>> = {
+  "1": {
+    "SANTA FÉ DO SUL": ["roni deivid", "rogerio molina", "rogerio"],
+    "ARARAQUARA": ["valquiria da silva", "kelly cristina"],
+    "EMBU GUAÇU": ["naerte senhorinho", "adison ferreira"],
+    "RIO CLARO": ["ubirajara fratucello", "ubirajara", "paulo cesar"],
+    "SIMONSEN": ["joao delcino", "adriana ap", "adriana da silva"],
+    "SANTA ADÉLIA": ["jamil mattioli", "pedro oscar"],
+    "SÃO JOSÉ DO RIO PRETO": ["antonio fabio", "grace carrye", "grace carryne"],
+    "CHAPADÃO DO SUL": ["jose souza", "antonio reinado", "antonio reinaldo"],
+    "RONDONÓPOLIS": ["edilson de sousa", "esmeraldo"],
+    "SÃO VICENTE": ["reginaldo santana", "alberico"],
+  },
+  "2": {
+    "SANTA FÉ DO SUL": ["silvio eduardo", "rogerio molina"],
+    "ARARAQUARA": ["carlos barboza", "kelly"],
+    "EMBU GUAÇU": ["ricardo garcia", "adson ferreira"],
+    "RIO CLARO": ["osmar gomes"],
+    "SIMONSEN": ["marcos rian"],
+    "SANTA ADÉLIA": ["warley durante", "pedro oscar"],
+    "SÃO JOSÉ DO RIO PRETO": ["fabio alex", "grace carrye"],
+    "CHAPADÃO DO SUL": ["mateus valencio", "antonio reinaldo"],
+    "RONDONÓPOLIS": ["wellington martins", "cicero neves"],
+    "SÃO VICENTE": ["valdir morais", "alberico"],
+  },
+  "3": {
+    "SANTA FÉ DO SUL": ["domingos neto", "domingos ferrantes", "rogerio molina", "rogerio"],
+    "ARARAQUARA": ["alexandra luzia", "kelly cristina", "valquiria da silva", "carlos alberto"],
+    "EMBU GUAÇU": ["edvaldo nunes", "adison ferreira"],
+    "RIO CLARO": ["jose de claudio", "paulo cesar", "osmar de souza", "ubirajara"],
+    "SIMONSEN": ["devani alves", "adriana da silva", "joao delcino"],
+    "SANTA ADÉLIA": ["renato nunes", "pedro oscar", "jamil mattioli", "warley durante"],
+    "SÃO JOSÉ DO RIO PRETO": ["simone regina", "grace carryne", "antonio fabio", "fabio alex", "simone"],
+    "CHAPADÃO DO SUL": ["luciano", "antonio reinaldo", "antonio reinado", "robson arnaldo"],
+    "RONDONÓPOLIS": ["jonh lennon", "jhon lennon", "john lennon", "esmeraldo de jesus", "esmeraldo", "john lenon"],
+    "SÃO VICENTE": ["bruno frank", "alberico de souza", "alberico"],
+  }
 };
 
 const CIDADE_ALIASES: Record<string, string[]> = {
@@ -316,6 +342,9 @@ app.get("/api/sync", async (req, res) => {
     });
 
     // Construir o status por operação
+    const turno = req.query.turno as string || "3";
+    const OPERACOES = OPERACOES_POR_TURNO[turno] || OPERACOES_POR_TURNO["3"];
+
     const results = Object.entries(OPERACOES).map(([cidade, nomesChave]) => {
       // Filtrar ativos que pertencem a esta cidade
       const candidatosCidade = allAtivos.filter(a => {
@@ -588,76 +617,80 @@ app.get("/api/import-all", async (req, res) => {
         }
       });
 
-      const results = Object.entries(OPERACOES).map(([cidade, nomesChave]) => {
-        const candidatosCidade = allAtivos.filter(a => {
-          const normCidade = normalizeText(cidade);
-          const normCidadeRaw = normalizeText(a.cidadeRaw || "");
-          const aliases = CIDADE_ALIASES[cidade] || [];
-          const matchCidade = normCidadeRaw.includes(normCidade) || 
-                             normCidade.includes(normCidadeRaw) ||
-                             aliases.some(alias => {
-                               const normAlias = normalizeText(alias);
-                               return normCidadeRaw.includes(normAlias) || normAlias.includes(normCidadeRaw);
-                             });
-          if (matchCidade) return true;
-          if (!a.cidadeRaw || a.cidadeRaw === "") {
-            return nomesChave.some(m => a.nome.includes(normalizeText(m)));
+      for (const turno of ["1", "2", "3"]) {
+        const OPERACOES = OPERACOES_POR_TURNO[turno];
+        const results = Object.entries(OPERACOES).map(([cidade, nomesChave]) => {
+          const candidatosCidade = allAtivos.filter(a => {
+            const normCidade = normalizeText(cidade);
+            const normCidadeRaw = normalizeText(a.cidadeRaw || "");
+            const aliases = CIDADE_ALIASES[cidade] || [];
+            const matchCidade = normCidadeRaw.includes(normCidade) || 
+                               normCidade.includes(normCidadeRaw) ||
+                               aliases.some(alias => {
+                                 const normAlias = normalizeText(alias);
+                                 return normCidadeRaw.includes(normAlias) || normAlias.includes(normCidadeRaw);
+                               });
+            if (matchCidade) return true;
+            if (!a.cidadeRaw || a.cidadeRaw === "") {
+              return nomesChave.some(m => a.nome.includes(normalizeText(m)));
+            }
+            return false;
+          });
+
+          const alguemEmRede = candidatosCidade.find(c => c.status.includes("REDE"));
+          if (alguemEmRede) {
+            return { cidade, motorista: alguemEmRede.nomeOriginal, encontrado: true, status: "REDE", coordenador: alguemEmRede.coordenador || null };
           }
-          return false;
-        });
 
-        const alguemEmRede = candidatosCidade.find(c => c.status.includes("REDE"));
-        if (alguemEmRede) {
-          return { cidade, motorista: alguemEmRede.nomeOriginal, encontrado: true, status: "REDE", coordenador: alguemEmRede.coordenador || null };
-        }
+          const encontrados: any[] = [];
+          const motoristasVistos = new Set();
+          const fuse = new Fuse(candidatosCidade.length > 0 ? candidatosCidade : allAtivos, {
+            keys: ["nome"],
+            threshold: candidatosCidade.length > 0 ? 0.45 : 0.3
+          });
 
-        const encontrados: any[] = [];
-        const motoristasVistos = new Set();
-        const fuse = new Fuse(candidatosCidade.length > 0 ? candidatosCidade : allAtivos, {
-          keys: ["nome"],
-          threshold: candidatosCidade.length > 0 ? 0.45 : 0.3
-        });
-
-        for (const chave of nomesChave) {
-          const searchResults = fuse.search(normalizeText(chave));
-          if (searchResults.length > 0) {
-            const item = searchResults[0].item;
-            if (!motoristasVistos.has(item.nomeOriginal)) {
-              encontrados.push(item);
-              motoristasVistos.add(item.nomeOriginal);
+          for (const chave of nomesChave) {
+            const searchResults = fuse.search(normalizeText(chave));
+            if (searchResults.length > 0) {
+              const item = searchResults[0].item;
+              if (!motoristasVistos.has(item.nomeOriginal)) {
+                encontrados.push(item);
+                motoristasVistos.add(item.nomeOriginal);
+              }
             }
           }
-        }
 
-        if (encontrados.length > 0) {
-          const validos = encontrados.filter(e => e.status !== "F" && e.status !== "FOLGA");
-          if (validos.length > 0) {
-            validos.sort((a, b) => {
+          if (encontrados.length > 0) {
+            const validos = encontrados.filter(e => e.status !== "F" && e.status !== "FOLGA");
+            if (validos.length > 0) {
+              validos.sort((a, b) => {
+                const getPriority = (s: string) => { if (s === "S") return 100; if (s === "REDE") return 50; return 1; };
+                return getPriority(b.status) - getPriority(a.status);
+              });
+              const principal = validos[0];
+              return { cidade, motorista: principal.nomeOriginal, encontrado: true, status: principal.status, coordenador: principal.coordenador || null };
+            }
+          }
+
+          const candidatosValidos = candidatosCidade.filter(c => c.status !== "F" && c.status !== "FOLGA" && STATUS_ATIVO.includes(c.status));
+          if (candidatosValidos.length > 0) {
+            candidatosValidos.sort((a, b) => {
               const getPriority = (s: string) => { if (s === "S") return 100; if (s === "REDE") return 50; return 1; };
               return getPriority(b.status) - getPriority(a.status);
             });
-            const principal = validos[0];
-            return { cidade, motorista: principal.nomeOriginal, encontrado: true, status: principal.status, coordenador: principal.coordenador || null };
+            const fallback = candidatosValidos[0];
+            return { cidade, motorista: fallback.nomeOriginal, encontrado: true, status: fallback.status, coordenador: fallback.coordenador || null };
           }
-        }
 
-        const candidatosValidos = candidatosCidade.filter(c => c.status !== "F" && c.status !== "FOLGA" && STATUS_ATIVO.includes(c.status));
-        if (candidatosValidos.length > 0) {
-          candidatosValidos.sort((a, b) => {
-            const getPriority = (s: string) => { if (s === "S") return 100; if (s === "REDE") return 50; return 1; };
-            return getPriority(b.status) - getPriority(a.status);
-          });
-          const fallback = candidatosValidos[0];
-          return { cidade, motorista: fallback.nomeOriginal, encontrado: true, status: fallback.status, coordenador: fallback.coordenador || null };
-        }
+          return { cidade, motorista: null, encontrado: false, status: null, coordenador: null };
+        });
 
-        return { cidade, motorista: null, encontrado: false, status: null, coordenador: null };
-      });
-
-      allSchedules.push({
-        date: `${targetYear}-${targetMonth.toString().padStart(2, '0')}-${targetDay.toString().padStart(2, '0')}`,
-        results
-      });
+        allSchedules.push({
+          date: `${targetYear}-${targetMonth.toString().padStart(2, '0')}-${targetDay.toString().padStart(2, '0')}`,
+          turno: turno,
+          results
+        });
+      }
     }
 
     res.json({ schedules: allSchedules });

@@ -46,17 +46,52 @@ const OPERACOES: Record<string, string[]> = {
   "SÃO VICENTE": ["bruno frank", "alberico de souza", "alberico"],
 };
 
-const OPERACAO_METADATA: Record<string, { sigla: string, horario: string, infoFixa: string, coordenador: string }> = {
-  "SANTA FÉ DO SUL": { sigla: "ZSF", horario: "21:00 - 05:00", infoFixa: "Faz intervalo por conta.", coordenador: "Nome do Coordenador" },
-  "ARARAQUARA": { sigla: "ZTO, ZAR", horario: "21:00 - 05:00", infoFixa: "Intervalo no Grupo WhatsApp (TAXI ZTO) O.S para intervalo automática a partir das 00:00 - Aguardar confirmação WPP (em caso de Permanência, alterar apenas horário para às 03h).", coordenador: "Nome do Coordenador" },
-  "EMBU GUAÇU": { sigla: "ZEM", horario: "21:00 - 05:00", infoFixa: "Verificar com o motorista se será necessário veículo rede para intervalo.", coordenador: "Nome do Coordenador" },
-  "RIO CLARO": { sigla: "ZRX", horario: "22:00 - 06:00", infoFixa: "Buscar contato para intervalo no WhatsApp (Programador Rio Claro).", coordenador: "Nome do Coordenador" },
-  "SIMONSEN": { sigla: "ZZM", horario: "22:00 - 06:00", infoFixa: "Verificar com o motorista se será necessário veículo rede para intervalo.", coordenador: "Nome do Coordenador" },
-  "SANTA ADÉLIA": { sigla: "ZSD", horario: "22:00 - 06:00", infoFixa: "É necessário alinhar veículo rede a partir da 0h30 para intervalo do motorista.", coordenador: "Nome do Coordenador" },
-  "SÃO JOSÉ DO RIO PRETO": { sigla: "ZRU", horario: "22:00 - 06:00", infoFixa: "Horário fixo intervalo das 2h às 3h.", coordenador: "Nome do Coordenador" },
-  "CHAPADÃO DO SUL": { sigla: "TCS", horario: "23:00 - 07:00", infoFixa: "Grupo WhatsApp (Equipe Carregamento TAG x TCS | Escala | Tração | Pátio) ou fazer deslocamento Fausto de Costa Rica (Seguir modelo de criação). Obs.: Caso não haja retorno até às 4h00 confirmando intervalo, seguir com carro Autonomoz. Edson para ser motorista fixo.", coordenador: "Nome do Coordenador" },
-  "RONDONÓPOLIS": { sigla: "TRO", horario: "23:00 - 07:00", infoFixa: "Intervalo questiono Grupo WhatsApp (Carro fixo TRO).", coordenador: "Nome do Coordenador" },
-  "SÃO VICENTE": { sigla: "ZPT", horario: "23:00 - 07:00", infoFixa: "Grupo WhatsApp (Intervalo Rhyno São Vicente).", coordenador: "Nome do Coordenador" },
+const OPERACAO_METADATA: Record<string, Record<string, { sigla: string, cc: string, horario: string, infoFixa: string, coordenador: string }>> = {
+  "1": {
+    "SANTA FÉ DO SUL": { sigla: "ZSF", cc: "RMP-010-001", horario: "05:00 - 13:00", infoFixa: "À PARTIR DAS 08:00 (3H TRABALHADAS). Faz intervalo por conta ou REDE. Verificar com motorista.", coordenador: "Rodrigo" },
+    "ARARAQUARA": { sigla: "ZTO, ZAR", cc: "RMP-010-005", horario: "05:00 - 13:00", infoFixa: "ENVIAR MSG WPP À PARTIR DAS 09:00", coordenador: "Rodrigo" },
+    "EMBU GUAÇU": { sigla: "ZEM", cc: "RMP010008", horario: "05:00 - 13:00", infoFixa: "ALINHAR INTERVALO COM MOTORISTA (FAIXA) à partir das 10:00.", coordenador: "Paulo" },
+    "RIO CLARO": { sigla: "ZRX", cc: "RMP-010-006", horario: "06:00 - 14:00", infoFixa: "À PARTIR DAS 09:00 (3H TRABALHADAS). ENVIAR MSG WPP À PARTIR DAS 10:00", coordenador: "Rodrigo" },
+    "SIMONSEN": { sigla: "ZZM", cc: "RMP-010-002", horario: "06:00 - 14:00", infoFixa: "1º ALINHAR REDE - MSG LIDER NORTE FAIXA - MOTORISTA VERIFICAR FAIXA - ALINHAR REDE", coordenador: "Rodrigo" },
+    "SANTA ADÉLIA": { sigla: "ZSD", cc: "RMP-010-004", horario: "06:00 - 14:00", infoFixa: "Alinho REDE", coordenador: "Rodrigo" },
+    "SÃO JOSÉ DO RIO PRETO": { sigla: "ZRU", cc: "RMP-010-003", horario: "06:00 - 14:00", infoFixa: "INTERVALO FIXO DAS 12:00 ÀS 13:00", coordenador: "Rodrigo" },
+    "CHAPADÃO DO SUL": { sigla: "TCS", cc: "RMN-010-004", horario: "07:00 - 15:00", infoFixa: "À PARTIR DAS 10:00 (3H TRABALHADAS). ENVIAR MENSAGEM NO WTT À PARTIR DAS 08:30 PARA DAR TEMPO DE ACIONAR REDE (FAUSTO) SE NECESSÁRIO", coordenador: "Marcio" },
+    "RONDONÓPOLIS": { sigla: "TRO", cc: "RMN-010-001", horario: "07:00 - 15:00", infoFixa: "Motorista fora do APP. Intervalo questiono Grupo WhatsApp (Carro fixo TRO)", coordenador: "Fernando Uadner" },
+    "SÃO VICENTE": { sigla: "ZPT", cc: "RMP-010-010", horario: "07:00 - 15:00", infoFixa: "Grupo WhatsApp (Intervalo Rhyno São Vicente) - as vezes não tem subtsuição para cobrir intervalo", coordenador: "Paulo" },
+  },
+  "2": {
+    "SANTA FÉ DO SUL": { sigla: "ZSF", cc: "RMP-010-001", horario: "13:00 - 21:00", infoFixa: "Não tem suporte Rumo, necessário criar OS para intervalo (seguir modelo de criação) - Na falta de motorista na região, colocar OS manualmente em santa fé. Caso não consiga rede, verificar janela com lider escala - op norte whats", coordenador: "Rodrigo" },
+    "ARARAQUARA": { sigla: "ZTO, ZAR", cc: "RMP-010-005", horario: "13:00 - 21:00", infoFixa: "Intervalo no Grupo WhatsApp (TAXI ZTO)", coordenador: "Rodrigo" },
+    "EMBU GUAÇU": { sigla: "ZEM", cc: "RMP010008", horario: "13:00 - 21:00", infoFixa: "Entrar em contato com mesa SOS no whatsapp, aguardar retorno. Caso não haja retorno, entre em contato com o motorista do turno para verificar se ele consegue uma janela com a estação, se não for liberado por lá será necessário alinhar um rede.", coordenador: "Paulo" },
+    "RIO CLARO": { sigla: "ZRX", cc: "RMP-010-006", horario: "14:00 - 22:00", infoFixa: "Intervalo no WhatsApp (Programador Rio Claro ) - Se pedirem rede, iremos acionar.", coordenador: "Rodrigo" },
+    "SIMONSEN": { sigla: "ZZM", cc: "RMP-010-002", horario: "14:00 - 22:00", infoFixa: "Não tem suporte Rumo, necessário criar OS para intervalo do mesmo (seguir modelo de criação) - Na falta de motorista na região, realizar deslocamento em Votuporanga - SP. Ou faz por conta.", coordenador: "Rodrigo" },
+    "SANTA ADÉLIA": { sigla: "ZSD", cc: "RMP-010-004", horario: "14:00 - 22:00", infoFixa: "Não tem suporte Rumo, necessário criar OS para intervalo do mesmo (seguir modelo de criação) - Na falta de motorista na região, realizar deslocamento em Catanduva - SP.", coordenador: "Rodrigo" },
+    "SÃO JOSÉ DO RIO PRETO": { sigla: "ZRU", cc: "RMP-010-003", horario: "14:00 - 22:00", infoFixa: "Horário fixo intervalo das 2h às 3h (fora do App)", coordenador: "Rodrigo" },
+    "CHAPADÃO DO SUL": { sigla: "TCS", cc: "RMN-010-004", horario: "14:00 - 22:00", infoFixa: "Grupo WhatsApp (Equipe Carregamento TAG x TCS | Escala | Tração | Pátio) ou FAZER DESLOCAMENTO FAUSTO DE COSTA RICA (Seguir modelo de criação). Obs.: Caso não haja retorno até às 21:00 confirmando intervalo, seguir com carro Autonomoz.", coordenador: "Marcio" },
+    "RONDONÓPOLIS": { sigla: "TRO", cc: "RMN-010-001", horario: "15:00 - 23:00", infoFixa: "Grupo WhatsApp (CARRO FIXO TRO) ou ACIONAR REDE (Seguir modelo de criação). Obs.: Caso não haja retorno até às 21:00 confirmando intervalo, seguir com carro Autonomoz.", coordenador: "Fernando" },
+    "SÃO VICENTE": { sigla: "ZPT", cc: "RMP-010-010", horario: "15:00 - 23:00", infoFixa: "Grupo WhatsApp (Intervalo Rhyno São Vicente) - não tem subtsuição para cobrir intervalo", coordenador: "Paulo" },
+  },
+  "3": {
+    "SANTA FÉ DO SUL": { sigla: "ZSF", cc: "RMP-010-001", horario: "21:00 - 05:00", infoFixa: "Faz intervalo por conta.", coordenador: "Nome do Coordenador" },
+    "ARARAQUARA": { sigla: "ZTO, ZAR", cc: "RMP-010-005", horario: "21:00 - 05:00", infoFixa: "Intervalo no Grupo WhatsApp (TAXI ZTO) O.S para intervalo automática a partir das 00:00 - Aguardar confirmação WPP (em caso de Permanência, alterar apenas horário para às 03h).", coordenador: "Nome do Coordenador" },
+    "EMBU GUAÇU": { sigla: "ZEM", cc: "RMP010008", horario: "21:00 - 05:00", infoFixa: "Verificar com o motorista se será necessário veículo rede para intervalo.", coordenador: "Nome do Coordenador" },
+    "RIO CLARO": { sigla: "ZRX", cc: "RMP-010-006", horario: "22:00 - 06:00", infoFixa: "Buscar contato para intervalo no WhatsApp (Programador Rio Claro).", coordenador: "Nome do Coordenador" },
+    "SIMONSEN": { sigla: "ZZM", cc: "RMP-010-002", horario: "22:00 - 06:00", infoFixa: "Verificar com o motorista se será necessário veículo rede para intervalo.", coordenador: "Nome do Coordenador" },
+    "SANTA ADÉLIA": { sigla: "ZSD", cc: "RMP-010-004", horario: "22:00 - 06:00", infoFixa: "É necessário alinhar veículo rede a partir da 0h30 para intervalo do motorista.", coordenador: "Nome do Coordenador" },
+    "SÃO JOSÉ DO RIO PRETO": { sigla: "ZRU", cc: "RMP-010-003", horario: "22:00 - 06:00", infoFixa: "Horário fixo intervalo das 2h às 3h.", coordenador: "Nome do Coordenador" },
+    "CHAPADÃO DO SUL": { sigla: "TCS", cc: "RMN-010-004", horario: "23:00 - 07:00", infoFixa: "Grupo WhatsApp (Equipe Carregamento TAG x TCS | Escala | Tração | Pátio) ou fazer deslocamento Fausto de Costa Rica (Seguir modelo de criação). Obs.: Caso não haja retorno até às 4h00 confirmando intervalo, seguir com carro Autonomoz. Edson para ser motorista fixo.", coordenador: "Nome do Coordenador" },
+    "RONDONÓPOLIS": { sigla: "TRO", cc: "RMN-010-001", horario: "23:00 - 07:00", infoFixa: "Intervalo questiono Grupo WhatsApp (Carro fixo TRO).", coordenador: "Nome do Coordenador" },
+    "SÃO VICENTE": { sigla: "ZPT", cc: "RMP-010-010", horario: "23:00 - 07:00", infoFixa: "Grupo WhatsApp (Intervalo Rhyno São Vicente).", coordenador: "Nome do Coordenador" },
+  }
+};
+
+const formatCityName = (name: string) => {
+  const exceptions = ['do', 'da', 'de', 'dos', 'das'];
+  return name.split(' ').map((word, index) => {
+    const lower = word.toLowerCase();
+    if (index > 0 && exceptions.includes(lower)) return lower;
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  }).join(' ');
 };
 
 const VIA_DATA = [
@@ -114,6 +149,12 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState("Todos os Status");
   const [uploading, setUploading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [selectedTurno, setSelectedTurno] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("selected_turno") || "3";
+    }
+    return "3";
+  });
   const [activeTab, setActiveTab] = useState("painel");
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
@@ -138,8 +179,16 @@ export default function App() {
     }
     return {};
   });
+  const [manualInfoFixa, setManualInfoFixa] = useState<Record<string, string>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("manual_info_fixa");
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
   const [editingDriver, setEditingDriver] = useState<string | null>(null);
   const [editingCoordinator, setEditingCoordinator] = useState<string | null>(null);
+  const [editingInfoFixa, setEditingInfoFixa] = useState<string | null>(null);
   const [observacoes, setObservacoes] = useState<Record<string, string>>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("observacoes_turno");
@@ -155,7 +204,7 @@ export default function App() {
     const obs = observacoes[cidade];
     if (obs) {
       const motoristaName = isRede ? "REDE" : (manualDrivers[cidade] || motorista || "NÃO IDENTIFICADO");
-      const sigla = OPERACAO_METADATA[cidade]?.sigla || "OPS";
+      const sigla = OPERACAO_METADATA[selectedTurno]?.[cidade]?.sigla || "OPS";
       navigator.clipboard.writeText(`Motorista ${motoristaName} - ${sigla} - ${obs}`);
       setCopiedId(cidade);
       setTimeout(() => setCopiedId(null), 2000);
@@ -170,7 +219,7 @@ export default function App() {
       const result = data?.results?.find(r => r.cidade === cidade);
       const isRede = result ? (manualRede[cidade] !== undefined ? manualRede[cidade] : result.status === "REDE") : false;
       const motoristaName = isRede ? "REDE" : (manualDrivers[cidade] || result?.motorista || "NÃO IDENTIFICADO");
-      const sigla = OPERACAO_METADATA[cidade]?.sigla || "OPS";
+      const sigla = OPERACAO_METADATA[selectedTurno]?.[cidade]?.sigla || "OPS";
       return `Motorista ${motoristaName} - ${sigla} - ${obs}`;
     }).join("\n\n");
     
@@ -193,6 +242,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("manual_coordinators", JSON.stringify(manualCoordinators));
   }, [manualCoordinators]);
+
+  useEffect(() => {
+    localStorage.setItem("manual_info_fixa", JSON.stringify(manualInfoFixa));
+  }, [manualInfoFixa]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -224,7 +277,11 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const assignmentsRef = collection(db, `schedules/${selectedDate}/assignments`);
+    localStorage.setItem("selected_turno", selectedTurno);
+  }, [selectedTurno]);
+
+  useEffect(() => {
+    const assignmentsRef = collection(db, `schedules/${selectedDate}_${selectedTurno}/assignments`);
     
     setLoading(true);
     const unsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
@@ -256,6 +313,19 @@ export default function App() {
 
       // Se não houver dados no Firebase para esta data, preenche com as cidades vazias
       if (results.length === 0) {
+        // Use the cities from the current shift
+        const OPERACOES = {
+          "SANTA FÉ DO SUL": [],
+          "ARARAQUARA": [],
+          "EMBU GUAÇU": [],
+          "RIO CLARO": [],
+          "SIMONSEN": [],
+          "SANTA ADÉLIA": [],
+          "SÃO JOSÉ DO RIO PRETO": [],
+          "CHAPADÃO DO SUL": [],
+          "RONDONÓPOLIS": [],
+          "SÃO VICENTE": [],
+        };
         Object.keys(OPERACOES).forEach(cidade => {
           results.push({
             cidade,
@@ -286,11 +356,11 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [selectedDate]);
+  }, [selectedDate, selectedTurno]);
 
   const updateAssignment = async (cidade: string, updates: any) => {
     try {
-      const docRef = doc(db, `schedules/${selectedDate}/assignments/${cidade}`);
+      const docRef = doc(db, `schedules/${selectedDate}_${selectedTurno}/assignments/${cidade}`);
       await setDoc(docRef, { cidade, ...updates }, { merge: true });
     } catch (err: any) {
       console.error("Update Error:", err);
@@ -337,8 +407,9 @@ export default function App() {
 
       for (const schedule of importData.schedules) {
         const dateStr = schedule.date; // YYYY-MM-DD
+        const turno = schedule.turno;
         for (const result of schedule.results) {
-          const docRef = doc(db, `schedules/${dateStr}/assignments/${result.cidade}`);
+          const docRef = doc(db, `schedules/${dateStr}_${turno}/assignments/${result.cidade}`);
           batch.set(docRef, {
             cidade: result.cidade,
             motorista: result.motorista,
@@ -398,7 +469,9 @@ export default function App() {
     const matchesCity = cityFilter === "Todas as Cidades" || r.cidade === cityFilter;
     const matchesStatus = statusFilter === "Todos os Status" || 
       (statusFilter === "Encontrado" && r.encontrado) || 
-      (statusFilter === "Não Encontrado" && !r.encontrado);
+      (statusFilter === "Não Encontrado" && !r.encontrado) ||
+      (statusFilter === "Intervalo Tirado" && (manualRede[r.cidade] !== undefined ? manualRede[r.cidade] : r.status === "REDE" || intervalosOk[r.cidade])) ||
+      (statusFilter === "Pendente de Intervalo" && !(manualRede[r.cidade] !== undefined ? manualRede[r.cidade] : r.status === "REDE" || intervalosOk[r.cidade]));
     
     return matchesSearch && matchesCity && matchesStatus;
   }).sort((a, b) => {
@@ -429,11 +502,9 @@ export default function App() {
       {/* Header */}
       <header className={`sticky top-0 z-50 backdrop-blur-md border-b ${isDarkMode ? "bg-[#141414]/80 border-white/10" : "bg-white/80 border-black/5"} py-3 px-6 flex justify-between items-center shadow-sm`}>
         <div className="flex items-center gap-3">
-          <div className={`p-1.5 rounded-lg ${isDarkMode ? "bg-white" : "bg-black"}`}>
-            <img src="https://picsum.photos/seed/rhyno/32/32" alt="Logo" className="w-6 h-6 object-contain" />
-          </div>
-          <h1 className="text-lg font-bold tracking-tight">
-            RHYNO <span className="text-[#FF5722]">CONTROL</span>
+          <h1 className="text-xl font-black tracking-tight flex items-center gap-1.5">
+            <span className="text-yellow-400">RHYNO</span>
+            <span className={isDarkMode ? "text-white" : "text-black"}>CONTROL</span>
           </h1>
         </div>
         
@@ -508,6 +579,16 @@ export default function App() {
                 style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                 className={`bg-transparent cursor-pointer font-bold text-sm transition-colors focus:outline-none ${isDarkMode ? "text-[#E0E0E0]" : "text-[#1A1A1A]"}`}
               />
+              <div className={`w-px h-4 ${isDarkMode ? "bg-white/20" : "bg-black/10"}`}></div>
+              <select
+                value={selectedTurno}
+                onChange={(e) => setSelectedTurno(e.target.value)}
+                className={`bg-transparent cursor-pointer font-bold text-sm transition-colors focus:outline-none ${isDarkMode ? "text-[#E0E0E0]" : "text-[#1A1A1A]"}`}
+              >
+                <option value="1" className={isDarkMode ? "bg-[#141414]" : "bg-white"}>1º Turno</option>
+                <option value="2" className={isDarkMode ? "bg-[#141414]" : "bg-white"}>2º Turno</option>
+                <option value="3" className={isDarkMode ? "bg-[#141414]" : "bg-white"}>3º Turno</option>
+              </select>
             </div>
           </div>
           
@@ -533,18 +614,29 @@ export default function App() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-12 max-w-5xl mx-auto">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, staggerChildren: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-12 max-w-5xl mx-auto"
+        >
           {[
             { label: "CONFIRMADOS", value: stats.confirmados, color: "text-emerald-500" },
             { label: "PENDENTES", value: stats.pendentes, color: "text-rose-500" },
             { label: "PROGRESSO", value: `${stats.progresso}%`, color: "text-sky-500" },
           ].map((stat, i) => (
-            <div key={i} className={`p-8 lg:p-10 rounded-3xl shadow-sm border flex flex-col items-center justify-center text-center ${isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"}`}>
+            <motion.div 
+              key={i} 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.1 }}
+              className={`p-8 lg:p-10 rounded-3xl shadow-sm border flex flex-col items-center justify-center text-center ${isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"}`}
+            >
               <span className={`text-[11px] font-medium tracking-[0.25em] uppercase mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>{stat.label}</span>
               <span className={`text-6xl lg:text-7xl font-light tracking-tight ${stat.color}`}>{stat.value}</span>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Filters */}
         <div className={`p-2 rounded-2xl shadow-sm border flex flex-col lg:flex-row gap-2 mb-12 ${isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"}`}>
@@ -576,6 +668,8 @@ export default function App() {
             <option className={isDarkMode ? "bg-[#141414]" : "bg-white"}>Todos os Status</option>
             <option className={isDarkMode ? "bg-[#141414]" : "bg-white"}>Encontrado</option>
             <option className={isDarkMode ? "bg-[#141414]" : "bg-white"}>Não Encontrado</option>
+            <option className={isDarkMode ? "bg-[#141414]" : "bg-white"}>Intervalo Tirado</option>
+            <option className={isDarkMode ? "bg-[#141414]" : "bg-white"}>Pendente de Intervalo</option>
           </select>
         </div>
 
@@ -615,23 +709,30 @@ export default function App() {
                 } ${isIntervaloOk ? "opacity-60 scale-[0.98] grayscale-[0.2]" : "hover:-translate-y-1"}`}
               >
                 {/* Header */}
-                <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5"}`}>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-black tracking-[0.2em] uppercase px-2 py-1 rounded-md ${isDarkMode ? "bg-[#FF5722]/20 text-[#FF5722]" : "bg-[#FF5722]/10 text-[#FF5722]"}`}>
-                        {OPERACAO_METADATA[result.cidade]?.sigla || "OPS"}
-                      </span>
-                      <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
-                        {result.cidade}
-                      </span>
+                <div className={`px-6 py-5 border-b flex justify-between items-start ${isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5"}`}>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-col">
+                      <h3 className={`text-xl font-black tracking-tighter leading-none mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                        {formatCityName(result.cidade)}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${isDarkMode ? "bg-[#FF5722]/10 border-[#FF5722]/20 text-[#FF5722]" : "bg-[#FF5722]/5 border-[#FF5722]/10 text-[#FF5722]"}`}>
+                          {OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.sigla || "OPS"}
+                        </span>
+                        {OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.cc && (
+                          <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${isDarkMode ? "bg-white/5 border-white/10 text-gray-400" : "bg-black/5 border-black/10 text-gray-500"}`}>
+                            {OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.cc}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 group/coord">
+                    <div className="flex items-center gap-2 group/coord mt-1">
                       {editingCoordinator === result.cidade ? (
                         <input
                           type="text"
                           autoFocus
                           className={`text-[10px] font-medium uppercase tracking-wider px-1 py-0.5 rounded border outline-none w-40 ${isDarkMode ? "bg-[#1A1A1A] border-white/20 text-white" : "bg-white border-black/20 text-black"}`}
-                          defaultValue={manualCoordinators[result.cidade] || result.coordenador || OPERACAO_METADATA[result.cidade]?.coordenador || "Coordenador"}
+                          defaultValue={manualCoordinators[result.cidade] || result.coordenador || OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.coordenador || "Coordenador"}
                           onBlur={(e) => {
                             const val = e.target?.value;
                             if (val !== undefined) {
@@ -654,7 +755,7 @@ export default function App() {
                       ) : (
                         <>
                           <span className={`text-[10px] font-medium uppercase tracking-wider opacity-60`}>
-                            {manualCoordinators[result.cidade] || result.coordenador || OPERACAO_METADATA[result.cidade]?.coordenador || "Coordenador"}
+                            {manualCoordinators[result.cidade] || result.coordenador || OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.coordenador || "Coordenador"}
                           </span>
                           <button 
                             onClick={() => setEditingCoordinator(result.cidade)}
@@ -668,7 +769,7 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-1.5 text-xs font-bold opacity-70">
                     <Clock size={12} className="text-[#FF5722]" />
-                    <span>{OPERACAO_METADATA[result.cidade]?.horario || "--:--"}</span>
+                    <span>{OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.horario || "--:--"}</span>
                   </div>
                 </div>
 
@@ -738,13 +839,45 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className={`p-4 rounded-xl border-l-2 border-[#FF5722] mb-6 text-sm leading-relaxed ${isDarkMode ? "bg-[#FF5722]/5 text-gray-300" : "bg-[#FF5722]/5 text-gray-700"}`}>
-                    <span className="font-semibold text-[#FF5722] block mb-1">
-                      Informações fixas
-                    </span>
-                    <span className="font-normal">
-                      {OPERACAO_METADATA[result.cidade]?.infoFixa || "Nenhuma informação adicional."}
-                    </span>
+                  <div className={`p-4 rounded-xl border-l-2 border-[#FF5722] mb-6 text-sm leading-relaxed group/info ${isDarkMode ? "bg-[#FF5722]/5 text-gray-300" : "bg-[#FF5722]/5 text-gray-700"}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-semibold text-[#FF5722] block">
+                        Informações fixas
+                      </span>
+                      <button 
+                        onClick={() => setEditingInfoFixa(result.cidade)}
+                        className="opacity-0 group-hover/info:opacity-100 transition-opacity shrink-0"
+                      >
+                        <Pencil size={12} className="text-[#FF5722] hover:text-[#E64A19]" />
+                      </button>
+                    </div>
+                    {editingInfoFixa === result.cidade ? (
+                      <textarea
+                        autoFocus
+                        className={`w-full bg-transparent border-b-2 outline-none resize-none overflow-hidden ${isDarkMode ? "border-[#FF5722] text-white" : "border-[#FF5722] text-black"}`}
+                        defaultValue={manualInfoFixa[result.cidade] || OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.infoFixa || "Nenhuma informação adicional."}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          setManualInfoFixa(prev => ({ ...prev, [result.cidade]: val }));
+                          setEditingInfoFixa(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            const val = e.currentTarget.value;
+                            setManualInfoFixa(prev => ({ ...prev, [result.cidade]: val }));
+                            setEditingInfoFixa(null);
+                          } else if (e.key === 'Escape') {
+                            setEditingInfoFixa(null);
+                          }
+                        }}
+                        rows={3}
+                      />
+                    ) : (
+                      <span className="font-normal whitespace-pre-wrap">
+                        {manualInfoFixa[result.cidade] || OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.infoFixa || "Nenhuma informação adicional."}
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-auto space-y-5">
@@ -865,13 +998,25 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Object.keys(OPERACOES).map(cidade => (
                   <div key={cidade} className={`flex flex-col gap-3 p-5 rounded-2xl border transition-colors ${isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5"}`}>
-                    <div className="flex items-center gap-4">
-                      <span className={`text-xs font-black tracking-[0.2em] uppercase px-3 py-1 rounded-lg ${isDarkMode ? "bg-white/10 text-gray-300" : "bg-black/10 text-gray-700"}`}>
-                        {OPERACAO_METADATA[cidade]?.sigla || "OPS"}
-                      </span>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-base">{cidade}</span>
-                        <span className="text-xs font-bold opacity-50">{OPERACAO_METADATA[cidade]?.horario || "--:--"}</span>
+                    <div className="flex items-center gap-5">
+                      <div className="flex flex-col gap-1.5">
+                        <h4 className={`text-lg font-black tracking-tighter leading-none ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                          {formatCityName(cidade)}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${isDarkMode ? "bg-white/10 border-white/10 text-gray-300" : "bg-black/5 border-black/10 text-gray-700"}`}>
+                            {OPERACAO_METADATA[selectedTurno]?.[cidade]?.sigla || "OPS"}
+                          </span>
+                          {OPERACAO_METADATA[selectedTurno]?.[cidade]?.cc && (
+                            <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${isDarkMode ? "bg-white/5 border-white/10 text-gray-500" : "bg-black/5 border-black/10 text-gray-400"}`}>
+                              {OPERACAO_METADATA[selectedTurno]?.[cidade]?.cc}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col border-l pl-4 border-white/10">
+                        <span className="text-[10px] font-bold uppercase opacity-40 tracking-widest mb-0.5">Horário</span>
+                        <span className="text-xs font-black tracking-tight">{OPERACAO_METADATA[selectedTurno]?.[cidade]?.horario || "--:--"}</span>
                       </div>
                     </div>
                     <div className="relative mt-2">
