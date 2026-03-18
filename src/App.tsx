@@ -25,7 +25,8 @@ import {
   Copy,
   Truck,
   Pencil,
-  LogOut
+  LogOut,
+  BarChart3
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
@@ -197,7 +198,17 @@ export default function App() {
     return {};
   });
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [painelSubTab, setPainelSubTab] = useState<"pendentes" | "concluidos">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("painel_sub_tab") as any) || "pendentes";
+    }
+    return "pendentes";
+  });
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    localStorage.setItem("painel_sub_tab", painelSubTab);
+  }, [painelSubTab]);
   const [viaSearch, setViaSearch] = useState("");
 
   const handleCopy = (cidade: string, motorista: string | null, isRede: boolean) => {
@@ -212,7 +223,7 @@ export default function App() {
   };
 
   const handleCopyAllObservations = () => {
-    const obsEntries = Object.entries(observacoes).filter(([_, obs]) => obs.trim() !== "");
+    const obsEntries = Object.entries(observacoes).filter(([_, obs]) => (obs as string).trim() !== "");
     if (obsEntries.length === 0) return;
 
     const textToCopy = obsEntries.map(([cidade, obs]) => {
@@ -465,15 +476,19 @@ export default function App() {
   }, [data]);
 
   const filteredResults = (data?.results || []).filter(r => {
+    const isRede = manualRede[r.cidade] !== undefined ? manualRede[r.cidade] : r.status === "REDE";
+    const isOk = isRede || intervalosOk[r.cidade];
+    
+    const matchesSubTab = painelSubTab === "pendentes" ? !isOk : isOk;
     const matchesSearch = !searchTerm || (r.motorista && r.motorista.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCity = cityFilter === "Todas as Cidades" || r.cidade === cityFilter;
     const matchesStatus = statusFilter === "Todos os Status" || 
       (statusFilter === "Encontrado" && r.encontrado) || 
       (statusFilter === "Não Encontrado" && !r.encontrado) ||
-      (statusFilter === "Intervalo Tirado" && (manualRede[r.cidade] !== undefined ? manualRede[r.cidade] : r.status === "REDE" || intervalosOk[r.cidade])) ||
-      (statusFilter === "Pendente de Intervalo" && !(manualRede[r.cidade] !== undefined ? manualRede[r.cidade] : r.status === "REDE" || intervalosOk[r.cidade]));
+      (statusFilter === "Intervalo Tirado" && isOk) ||
+      (statusFilter === "Pendente de Intervalo" && !isOk);
     
-    return matchesSearch && matchesCity && matchesStatus;
+    return matchesSubTab && matchesSearch && matchesCity && matchesStatus;
   }).sort((a, b) => {
     const aRede = manualRede[a.cidade] !== undefined ? manualRede[a.cidade] : a.status === "REDE";
     const bRede = manualRede[b.cidade] !== undefined ? manualRede[b.cidade] : b.status === "REDE";
@@ -500,7 +515,12 @@ export default function App() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-[#0A0A0A] text-[#E0E0E0]" : "bg-[#F4F5F7] text-[#1A1A1A]"} font-sans`}>
       {/* Header */}
-      <header className={`sticky top-0 z-50 backdrop-blur-md border-b ${isDarkMode ? "bg-[#141414]/80 border-white/10" : "bg-white/80 border-black/5"} py-3 px-6 flex justify-between items-center shadow-sm`}>
+      <motion.header 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        className={`sticky top-0 z-50 backdrop-blur-md border-b ${isDarkMode ? "bg-[#141414]/80 border-white/10" : "bg-white/80 border-black/5"} py-3 px-6 flex justify-between items-center shadow-sm`}
+      >
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black tracking-tight flex items-center gap-1.5">
             <span className="text-yellow-400">RHYNO</span>
@@ -545,28 +565,45 @@ export default function App() {
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         </div>
-      </header>
+      </motion.header>
 
       <main className="max-w-7xl mx-auto p-6 lg:p-10">
-        {activeTab === "painel" ? (
-          <>
-            {/* Title and Sync Button */}
+        <AnimatePresence mode="wait">
+          {activeTab === "painel" ? (
+            <motion.div
+              key="painel"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+            >
+              {/* Title and Sync Button */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 mb-12">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${isDarkMode ? "text-[#5C728A]" : "text-gray-500"}`}>
-                Desenvolvido por Dionisio Porto
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#FF5722]" />
-                <span className={`text-[11px] font-bold tracking-[0.15em] uppercase ${isDarkMode ? "text-[#A0AAB5]" : "text-gray-600"}`}>Sistema de Monitoramento</span>
-              </div>
-            </div>
-            <h2 className={`text-6xl lg:text-7xl font-black tracking-tighter leading-[0.9] ${isDarkMode ? "text-[#E0E0E0]" : "text-[#1A1A1A]"}`}>
-              Painel <br className="hidden lg:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF5722] to-[#FF8A65]">Operacional</span>
-            </h2>
-            <div className={`flex items-center gap-4 mt-4 px-5 py-3.5 rounded-2xl border inline-flex w-fit ${isDarkMode ? "bg-[#141414] border-white/10" : "bg-white border-black/10 shadow-sm"}`}>
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex flex-col gap-4"
+              >
+                <div className="flex flex-col gap-2">
+                  <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${isDarkMode ? "text-[#5C728A]" : "text-gray-500"}`}>
+                    Desenvolvido por Dionisio Porto
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#FF5722]" />
+                    <span className={`text-[11px] font-bold tracking-[0.15em] uppercase ${isDarkMode ? "text-[#A0AAB5]" : "text-gray-600"}`}>Sistema de Monitoramento</span>
+                  </div>
+                </div>
+                <h2 className={`text-6xl lg:text-7xl font-black tracking-tighter leading-[0.9] ${isDarkMode ? "text-[#E0E0E0]" : "text-[#1A1A1A]"}`}>
+                  Painel <br className="hidden lg:block" />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF5722] to-[#FF8A65]">Operacional</span>
+                </h2>
+              </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className={`flex items-center gap-4 mt-4 px-5 py-3.5 rounded-2xl border inline-flex w-fit ${isDarkMode ? "bg-[#141414] border-white/10" : "bg-white border-black/10 shadow-sm"}`}
+            >
               <Clock size={18} className="text-[#FF5722]" />
               <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? "text-[#5C728A]" : "text-gray-500"}`}>Escala de:</span>
               <input 
@@ -589,57 +626,190 @@ export default function App() {
                 <option value="2" className={isDarkMode ? "bg-[#141414]" : "bg-white"}>2º Turno</option>
                 <option value="3" className={isDarkMode ? "bg-[#141414]" : "bg-white"}>3º Turno</option>
               </select>
-            </div>
+            </motion.div>
           </div>
-          
-          <div className="flex flex-wrap gap-3 w-full lg:w-auto">
-            <label className={`flex-1 lg:flex-none justify-center px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-sm border cursor-pointer active:scale-95 ${
-              isDarkMode 
-                ? "bg-white/5 border-white/10 hover:bg-white/10 text-white" 
-                : "bg-white border-black/5 hover:bg-gray-50 text-gray-700"
-            }`}>
-              <Upload size={18} className={uploading ? "animate-bounce" : ""} />
-              <span className="text-sm">{uploading ? "Importando para o Banco..." : "Importar Planilha"}</span>
-              <input type="file" accept=".xlsx" className="hidden" onChange={handleFileUpload} disabled={uploading} />
-            </label>
-            <button 
-              onClick={() => {}}
-              disabled={loading}
-              className="flex-1 lg:flex-none justify-center bg-[#FF5722] hover:bg-[#E64A19] text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5722]/20 active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-              <span className="text-sm">Sincronizado</span>
-            </button>
-          </div>
-        </div>
 
         {/* Stats Cards */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, staggerChildren: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-12 max-w-5xl mx-auto"
+          variants={{
+            show: { transition: { staggerChildren: 0.1 } }
+          }}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-6xl mx-auto"
         >
           {[
-            { label: "CONFIRMADOS", value: stats.confirmados, color: "text-emerald-500" },
-            { label: "PENDENTES", value: stats.pendentes, color: "text-rose-500" },
-            { label: "PROGRESSO", value: `${stats.progresso}%`, color: "text-sky-500" },
-          ].map((stat, i) => (
-            <motion.div 
-              key={i} 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.1 }}
-              className={`p-8 lg:p-10 rounded-3xl shadow-sm border flex flex-col items-center justify-center text-center ${isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"}`}
-            >
-              <span className={`text-[11px] font-medium tracking-[0.25em] uppercase mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>{stat.label}</span>
-              <span className={`text-6xl lg:text-7xl font-light tracking-tight ${stat.color}`}>{stat.value}</span>
-            </motion.div>
-          ))}
+            { 
+              label: "Confirmados", 
+              value: stats.confirmados, 
+              color: "emerald",
+              icon: CheckCircle2,
+              desc: "Motoristas validados"
+            },
+            { 
+              label: "Pendentes", 
+              value: stats.pendentes, 
+              color: "rose",
+              icon: Clock,
+              desc: "Aguardando verificação"
+            },
+            { 
+              label: "Progresso", 
+              value: stats.progresso, 
+              color: "sky",
+              icon: BarChart3,
+              desc: "Conclusão do turno",
+              isPercent: true
+            },
+          ].map((stat, i) => {
+            const colors = {
+              emerald: {
+                border: isDarkMode ? "border-emerald-500/30" : "border-emerald-500/20",
+                shadow: "hover:shadow-[0_0_30px_rgba(16,185,129,0.2)]",
+                led: "via-emerald-500/60",
+                dot: "bg-emerald-500 shadow-emerald-500/50",
+                iconBg: isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50",
+                text: "text-emerald-500",
+                glow: "bg-emerald-500"
+              },
+              rose: {
+                border: isDarkMode ? "border-rose-500/30" : "border-rose-500/20",
+                shadow: "hover:shadow-[0_0_30px_rgba(244,63,94,0.2)]",
+                led: "via-rose-500/60",
+                dot: "bg-rose-500 shadow-rose-500/50",
+                iconBg: isDarkMode ? "bg-rose-500/10" : "bg-rose-50",
+                text: "text-rose-500",
+                glow: "bg-rose-500"
+              },
+              sky: {
+                border: isDarkMode ? "border-sky-500/30" : "border-sky-500/20",
+                shadow: "hover:shadow-[0_0_30px_rgba(14,165,233,0.2)]",
+                led: "via-sky-500/60",
+                dot: "bg-sky-500 shadow-sky-500/50",
+                iconBg: isDarkMode ? "bg-sky-500/10" : "bg-sky-50",
+                text: "text-sky-500",
+                glow: "bg-sky-500"
+              }
+            }[stat.color as 'emerald' | 'rose' | 'sky'];
+
+            return (
+              <motion.div 
+                key={i} 
+                variants={{
+                  hidden: { opacity: 0, y: 30, scale: 0.95 },
+                  show: { opacity: 1, y: 0, scale: 1 }
+                }}
+                whileHover={{ y: -8, transition: { duration: 0.3, ease: "easeOut" } }}
+                className={`relative p-8 rounded-[2.5rem] border overflow-hidden group transition-all duration-500 ${
+                  isDarkMode 
+                    ? `bg-[#141414] ${colors.border} shadow-[0_0_20px_rgba(0,0,0,0.4)]` 
+                    : `bg-white ${colors.border} shadow-xl shadow-black/[0.02]`
+                } ${colors.shadow}`}
+              >
+                {/* LED Glow Effect Top */}
+                <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent ${colors.led} to-transparent`} />
+                
+                {/* Decorative Background Glow */}
+                <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-3xl opacity-10 ${colors.glow} transition-opacity group-hover:opacity-30`} />
+                
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className={`p-3 rounded-2xl ${colors.iconBg}`}>
+                      <stat.icon size={24} className={colors.text} />
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <div className={`w-2 h-2 rounded-full ${colors.dot} shadow-[0_0_10px] animate-pulse`} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className={`text-sm font-bold mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      {stat.label}
+                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className={`text-6xl font-black tracking-tighter ${
+                        isDarkMode ? "text-white" : "text-gray-900"
+                      }`}>
+                        {stat.value}
+                      </span>
+                      {stat.isPercent && (
+                        <span className={`text-2xl font-bold ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>%</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] font-medium text-gray-500 mt-2 uppercase tracking-wider">
+                      {stat.desc}
+                    </p>
+                  </div>
+
+                  {stat.isPercent && (
+                    <div className="mt-6">
+                      <div className={`w-full h-2 rounded-full overflow-hidden ${isDarkMode ? "bg-white/5" : "bg-black/5"}`}>
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${stat.value}%` }}
+                          transition={{ duration: 1, delay: 0.5, ease: "circOut" }}
+                          className={`h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 shadow-lg shadow-sky-500/20`}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </motion.div>
 
+        {/* Sub-tabs for Painel */}
+        <div className="flex gap-4 mb-8 border-b border-white/5 pb-4">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setPainelSubTab("pendentes")}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 relative ${
+              painelSubTab === "pendentes"
+                ? "text-white shadow-lg shadow-[#FF5722]/20"
+                : isDarkMode ? "bg-white/5 text-gray-400 hover:bg-white/10" : "bg-black/5 text-gray-500 hover:bg-black/10"
+            }`}
+          >
+            <Clock size={16} className="relative z-10" />
+            <span className="relative z-10">Pendentes ({stats.pendentes})</span>
+            {painelSubTab === "pendentes" && (
+              <motion.div
+                layoutId="activeSubTab"
+                className="absolute inset-0 bg-[#FF5722] rounded-xl"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setPainelSubTab("concluidos")}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 relative ${
+              painelSubTab === "concluidos"
+                ? "text-white shadow-lg shadow-emerald-500/20"
+                : isDarkMode ? "bg-white/5 text-gray-400 hover:bg-white/10" : "bg-black/5 text-gray-500 hover:bg-black/10"
+            }`}
+          >
+            <CheckCircle2 size={16} className="relative z-10" />
+            <span className="relative z-10">Concluídos ({stats.confirmados})</span>
+            {painelSubTab === "concluidos" && (
+              <motion.div
+                layoutId="activeSubTab"
+                className="absolute inset-0 bg-emerald-500 rounded-xl"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+          </motion.button>
+        </div>
+
         {/* Filters */}
-        <div className={`p-2 rounded-2xl shadow-sm border flex flex-col lg:flex-row gap-2 mb-12 ${isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"}`}>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className={`p-2 rounded-2xl shadow-sm border flex flex-col lg:flex-row gap-2 mb-12 ${isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"}`}
+        >
           <div className="flex-1 relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#FF5722] transition-colors" size={18} />
             <input 
@@ -671,7 +841,7 @@ export default function App() {
             <option className={isDarkMode ? "bg-[#141414]" : "bg-white"}>Intervalo Tirado</option>
             <option className={isDarkMode ? "bg-[#141414]" : "bg-white"}>Pendente de Intervalo</option>
           </select>
-        </div>
+        </motion.div>
 
         {/* Error Message */}
         {error && (
@@ -703,10 +873,11 @@ export default function App() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
+                whileHover={{ y: -5, transition: { duration: 0.2 } }}
                 key={result.cidade}
                 className={`group rounded-3xl shadow-sm border transition-all duration-300 hover:shadow-md overflow-hidden flex flex-col ${
                   isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"
-                } ${isIntervaloOk ? "opacity-60 scale-[0.98] grayscale-[0.2]" : "hover:-translate-y-1"}`}
+                } ${isIntervaloOk ? "opacity-60 scale-[0.98] grayscale-[0.2]" : ""}`}
               >
                 {/* Header */}
                 <div className={`px-6 py-5 border-b flex justify-between items-start ${isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5"}`}>
@@ -812,12 +983,14 @@ export default function App() {
                             {displayMotorista}
                           </h3>
                           {!isRede && (
-                            <button 
+                            <motion.button 
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
                               onClick={() => setEditingDriver(result.cidade)}
                               className="opacity-0 group-hover/driver:opacity-100 transition-opacity shrink-0"
                             >
                               <Pencil size={16} className="text-gray-400 hover:text-[#FF5722]" />
-                            </button>
+                            </motion.button>
                           )}
                         </div>
                       )}
@@ -844,12 +1017,14 @@ export default function App() {
                       <span className="font-semibold text-[#FF5722] block">
                         Informações fixas
                       </span>
-                      <button 
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => setEditingInfoFixa(result.cidade)}
                         className="opacity-0 group-hover/info:opacity-100 transition-opacity shrink-0"
                       >
                         <Pencil size={12} className="text-[#FF5722] hover:text-[#E64A19]" />
-                      </button>
+                      </motion.button>
                     </div>
                     {editingInfoFixa === result.cidade ? (
                       <textarea
@@ -923,7 +1098,9 @@ export default function App() {
                           isDarkMode ? "border-white/10 focus:border-[#FF5722]" : "border-black/10 focus:border-[#FF5722]"
                         }`}
                       />
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => handleCopy(result.cidade, result.encontrado ? result.motorista : null, isRede)}
                         className={`absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors ${
                           isDarkMode ? "hover:bg-white/10 text-gray-400 hover:text-white" : "hover:bg-black/5 text-gray-500 hover:text-black"
@@ -931,7 +1108,7 @@ export default function App() {
                         title="Copiar observação"
                       >
                         <Copy size={14} />
-                      </button>
+                      </motion.button>
                       <AnimatePresence>
                         {copiedId === result.cidade && (
                           <motion.div
@@ -953,9 +1130,11 @@ export default function App() {
         </div>
 
         <div className="mt-8 flex justify-end relative">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleCopyAllObservations}
-            disabled={Object.values(observacoes).filter(obs => obs.trim() !== "").length === 0}
+            disabled={Object.values(observacoes).filter(obs => (obs as string).trim() !== "").length === 0}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
               isDarkMode 
                 ? "bg-white/10 hover:bg-white/20 text-white" 
@@ -964,7 +1143,7 @@ export default function App() {
           >
             <Copy size={18} />
             Copiar Todas as Observações
-          </button>
+          </motion.button>
           <AnimatePresence>
             {copiedId === "all_obs" && (
               <motion.div
@@ -978,9 +1157,15 @@ export default function App() {
             )}
           </AnimatePresence>
         </div>
-        </>
+        </motion.div>
         ) : activeTab === "informacoes_turno" ? (
-          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <motion.div 
+            key="informacoes_turno"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex flex-col gap-6"
+          >
             <div className="flex flex-col gap-2 mb-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-2 h-2 rounded-full bg-[#FF5722] animate-pulse" />
@@ -1061,7 +1246,7 @@ export default function App() {
               <div className="mt-8 flex justify-end relative">
                 <button
                   onClick={handleCopyAllObservations}
-                  disabled={Object.values(observacoes).filter(obs => obs.trim() !== "").length === 0}
+                  disabled={Object.values(observacoes).filter(obs => (obs as string).trim() !== "").length === 0}
                   className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     isDarkMode 
                       ? "bg-white/10 hover:bg-white/20 text-white" 
@@ -1085,9 +1270,15 @@ export default function App() {
                 </AnimatePresence>
               </div>
             </div>
-          </div>
+          </motion.div>
         ) : activeTab === "via" ? (
-          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <motion.div 
+            key="via"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex flex-col gap-6"
+          >
             <div className="flex flex-col gap-2 mb-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-2 h-2 rounded-full bg-[#FF5722] animate-pulse" />
@@ -1145,17 +1336,49 @@ export default function App() {
                 </table>
               </div>
             </div>
-          </div>
+          </motion.div>
         ) : null}
+        </AnimatePresence>
       </main>
-      <footer className={`mt-20 py-10 px-6 border-t ${isDarkMode ? "bg-[#0A0A0A] border-white/5" : "bg-white border-black/5"}`}>
+      <motion.footer 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        className={`mt-20 py-10 px-6 border-t ${isDarkMode ? "bg-[#0A0A0A] border-white/5" : "bg-white border-black/5"}`}
+      >
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2 opacity-50">
             <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${isDarkMode ? "bg-white text-black" : "bg-black text-white"}`}>R</div>
             <span className="text-xs font-bold tracking-widest uppercase">Rhyno Control v2.0</span>
           </div>
+
+          <div className="flex flex-wrap gap-3 w-full md:w-auto">
+            <motion.label 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`flex-1 md:flex-none justify-center px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-sm border cursor-pointer active:scale-95 ${
+                isDarkMode 
+                  ? "bg-white/5 border-white/10 hover:bg-white/10 text-white" 
+                  : "bg-white border-black/5 hover:bg-gray-50 text-gray-700"
+              }`}
+            >
+              <Upload size={16} className={uploading ? "animate-bounce" : ""} />
+              <span className="text-xs">{uploading ? "Importando..." : "Importar Planilha"}</span>
+              <input type="file" accept=".xlsx" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+            </motion.label>
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => syncScale(selectedDate)}
+              disabled={loading}
+              className="flex-1 md:flex-none justify-center bg-[#FF5722] hover:bg-[#E64A19] text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5722]/20 active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              <span className="text-xs">{loading ? "Sincronizando..." : "Sincronizar Planilha"}</span>
+            </motion.button>
+          </div>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   );
 }
