@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId
+    // Fields:
+    //   - role: string (required, 'admin' or 'user')
+    //   - email: string (required)
+    //
+    // Collection: schedules/{date}/assignments
+    // Document ID: cidade
+    // Fields:
+    //   - cidade: string (required)
+    //   - motorista: string (optional)
+    //   - status: string (optional)
+    //   - coordenador: string (optional)
+    //   - isRede: boolean (optional)
+    //   - intervaloOk: boolean (optional)
+    //   - observacao: string (optional)
+    //   - encontrado: boolean (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "dionisioporto16@gmail.com" && request.auth.token.email_verified == true)
+        );
+    }
+
+    function isValidAssignment(data) {
+      return data.keys().hasAll(['cidade']) &&
+             data.cidade is string && data.cidade.size() > 0 && data.cidade.size() < 100 &&
+             (!('motorista' in data) || data.motorista == null || (data.motorista is string && data.motorista.size() < 100)) &&
+             (!('status' in data) || data.status == null || (data.status is string && data.status.size() < 50)) &&
+             (!('coordenador' in data) || data.coordenador == null || (data.coordenador is string && data.coordenador.size() < 100)) &&
+             (!('isRede' in data) || data.isRede == null || data.isRede is bool) &&
+             (!('intervaloOk' in data) || data.intervaloOk == null || data.intervaloOk is bool) &&
+             (!('observacao' in data) || data.observacao == null || (data.observacao is string && data.observacao.size() < 1000)) &&
+             (!('encontrado' in data) || data.encontrado == null || data.encontrado is bool);
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['role', 'email']) &&
+             data.role in ['admin', 'user'] &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow create: if isAdmin() && isValidUser(request.resource.data);
+      allow update: if isAdmin() && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /schedules/{date}/assignments/{cidade} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidAssignment(request.resource.data);
+      allow update: if isAuthenticated() && isValidAssignment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

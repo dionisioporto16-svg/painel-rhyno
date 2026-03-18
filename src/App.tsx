@@ -24,11 +24,15 @@ import {
   X,
   Copy,
   Truck,
-  Pencil
+  Pencil,
+  LogOut
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { auth, db } from "./firebase";
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
+import { collection, doc, onSnapshot, writeBatch, setDoc, getDocs } from "firebase/firestore";
 
 const OPERACOES: Record<string, string[]> = {
   "SANTA FÉ DO SUL": ["domingos neto", "domingos ferrantes", "rogerio molina", "rogerio"],
@@ -103,6 +107,8 @@ interface SyncData {
 }
 
 export default function App() {
+  const [user, setUser] = useState<any>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [data, setData] = useState<SyncData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +153,31 @@ export default function App() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [viaSearch, setViaSearch] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login error:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   const handleCopy = (cidade: string, motorista: string | null, isRede: boolean) => {
     const obs = observacoes[cidade];
@@ -197,17 +228,17 @@ export default function App() {
   }, []);
 
   const toggleIntervalo = (cidade: string) => {
-    setIntervalosOk(prev => ({ ...prev, [cidade]: !prev[cidade] }));
+    const newVal = !intervalosOk[cidade];
+    updateAssignment(cidade, { intervaloOk: newVal });
   };
 
   const toggleManualRede = (cidade: string) => {
-    setManualRede(prev => {
-      const isNowRede = !prev[cidade];
-      if (isNowRede) {
-        setIntervalosOk(prevOk => ({ ...prevOk, [cidade]: true }));
-      }
-      return { ...prev, [cidade]: isNowRede };
-    });
+    const isNowRede = !manualRede[cidade];
+    const updates: any = { isRede: isNowRede };
+    if (isNowRede) {
+      updates.intervaloOk = true;
+    }
+    updateAssignment(cidade, updates);
   };
 
   useEffect(() => {
@@ -220,53 +251,92 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const syncScale = async (dateOverride?: string) => {
+  useEffect(() => {
+    if (!user || !authReady) return;
+
+    const assignmentsRef = collection(db, `schedules/${selectedDate}/assignments`);
+    
     setLoading(true);
-    setError(null);
-    try {
-      // Se dateOverride for um evento (do onClick) ou não for string, usa selectedDate
-      const dateToUse = (typeof dateOverride === "string") ? dateOverride : selectedDate;
-      const [year, month, day] = dateToUse.split("-").map(Number);
-      
-      const response = await fetch(`/api/sync?day=${day}&month=${month}`);
-      const contentType = response.headers.get("content-type");
-      
-      if (!response.ok) {
-        if (contentType && contentType.includes("application/json")) {
-          const err = await response.json();
-          throw new Error(err.error || "Erro ao sincronizar escala");
-        } else {
-          throw new Error(`Erro do servidor (${response.status}): O servidor retornou um formato inesperado.`);
-        }
+    const unsubscribe = onSnapshot(assignmentsRef, (snapshot) => {
+      const results: Result[] = [];
+      const newIntervalosOk: Record<string, boolean> = {};
+      const newManualRede: Record<string, boolean> = {};
+      const newManualDrivers: Record<string, string> = {};
+      const newManualCoordinators: Record<string, string> = {};
+      const newObservacoes: Record<string, string> = {};
+
+      snapshot.docs.forEach((docSnap) => {
+        const d = docSnap.data();
+        const cidade = docSnap.id;
+        
+        results.push({
+          cidade,
+          motorista: d.motorista || null,
+          encontrado: d.encontrado || false,
+          status: d.status || null,
+          coordenador: d.coordenador || null
+        });
+
+        if (d.intervaloOk) newIntervalosOk[cidade] = true;
+        if (d.isRede) newManualRede[cidade] = true;
+        if (d.motorista && d.encontrado === false) newManualDrivers[cidade] = d.motorista; // If manually edited
+        if (d.coordenador) newManualCoordinators[cidade] = d.coordenador;
+        if (d.observacao) newObservacoes[cidade] = d.observacao;
+      });
+
+      // Se não houver dados no Firebase para esta data, preenche com as cidades vazias
+      if (results.length === 0) {
+        Object.keys(OPERACOES).forEach(cidade => {
+          results.push({
+            cidade,
+            motorista: null,
+            encontrado: false,
+            status: null,
+            coordenador: null
+          });
+        });
       }
 
-      if (contentType && contentType.includes("application/json")) {
-        const result = await response.json();
-        setData(result);
-        
-        setIntervalosOk(prev => {
-          const updated = { ...prev };
-          result.results.forEach((r: Result) => {
-            if (r.status === "REDE") {
-              updated[r.cidade] = true;
-            }
-          });
-          return updated;
-        });
-      } else {
-        throw new Error("O servidor retornou um formato inesperado (não é JSON). Verifique se o backend está rodando corretamente.");
-      }
-    } catch (err: any) {
-      console.error("Sync Error:", err);
-      setError(err.message);
-    } finally {
+      setData({
+        date: selectedDate,
+        totalAtivos: 0,
+        results
+      });
+      
+      setIntervalosOk(newIntervalosOk);
+      setManualRede(newManualRede);
+      setManualDrivers(newManualDrivers);
+      setManualCoordinators(newManualCoordinators);
+      setObservacoes(newObservacoes);
       setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+      setError("Erro ao ler dados do banco: " + error.message);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedDate, user, authReady]);
+
+  const updateAssignment = async (cidade: string, updates: any) => {
+    if (!user) return;
+    try {
+      const docRef = doc(db, `schedules/${selectedDate}/assignments/${cidade}`);
+      await setDoc(docRef, { cidade, ...updates }, { merge: true });
+    } catch (err: any) {
+      console.error("Update Error:", err);
+      setError("Erro ao atualizar: " + err.message);
     }
+  };
+
+  const syncScale = async (dateOverride?: string) => {
+    // Agora a sincronização é automática via onSnapshot. 
+    // Este botão pode ser usado apenas para forçar uma re-leitura se necessário, mas não é estritamente necessário.
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
     setUploading(true);
     setError(null);
@@ -274,21 +344,57 @@ export default function App() {
     formData.append("file", file);
 
     try {
+      // 1. Upload the file to the server
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const err = await response.json();
-          throw new Error(err.error || "Falha no upload");
-        }
         throw new Error(`Falha no upload (${response.status})`);
       }
       
-      await syncScale(selectedDate); // Sincroniza logo após o upload
+      // 2. Call /api/import-all to parse all dates
+      const importResponse = await fetch("/api/import-all");
+      if (!importResponse.ok) {
+        throw new Error(`Falha ao importar dados (${importResponse.status})`);
+      }
+
+      const importData = await importResponse.json();
+      
+      // 3. Batch write to Firestore
+      let batch = writeBatch(db);
+      let opCount = 0;
+
+      for (const schedule of importData.schedules) {
+        const dateStr = schedule.date; // YYYY-MM-DD
+        for (const result of schedule.results) {
+          const docRef = doc(db, `schedules/${dateStr}/assignments/${result.cidade}`);
+          batch.set(docRef, {
+            cidade: result.cidade,
+            motorista: result.motorista,
+            encontrado: result.encontrado,
+            status: result.status,
+            coordenador: result.coordenador,
+            isRede: result.status === "REDE",
+            intervaloOk: result.status === "REDE",
+            observacao: ""
+          }, { merge: true });
+          
+          opCount++;
+          if (opCount >= 400) { // Firestore batch limit is 500
+            await batch.commit();
+            batch = writeBatch(db);
+            opCount = 0;
+          }
+        }
+      }
+
+      if (opCount > 0) {
+        await batch.commit();
+      }
+
+      alert("Planilha importada com sucesso para o banco de dados!");
     } catch (err: any) {
       console.error("Upload Error:", err);
       setError("Erro ao enviar arquivo: " + err.message);
@@ -349,6 +455,33 @@ export default function App() {
     progresso: progressoValue
   };
 
+  if (!authReady) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F4F5F7] text-[#1A1A1A]">Carregando...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F4F5F7] text-[#1A1A1A] font-sans">
+        <div className="bg-white p-10 rounded-3xl shadow-lg max-w-md w-full text-center">
+          <div className="flex justify-center mb-6">
+            <div className="p-3 rounded-2xl bg-black">
+              <img src="https://picsum.photos/seed/rhyno/48/48" alt="Logo" className="w-12 h-12 object-contain" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-black tracking-tighter mb-2">RHYNO <span className="text-[#FF5722]">CONTROL</span></h1>
+          <p className="text-gray-500 mb-8 font-medium">Faça login para acessar o painel operacional.</p>
+          <button 
+            onClick={handleLogin}
+            className="w-full bg-[#FF5722] hover:bg-[#E64A19] text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#FF5722]/20 active:scale-95"
+          >
+            <User size={20} />
+            Entrar com Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-[#0A0A0A] text-[#E0E0E0]" : "bg-[#F4F5F7] text-[#1A1A1A]"} font-sans`}>
       {/* Header */}
@@ -398,9 +531,16 @@ export default function App() {
           >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isDarkMode ? "bg-[#FF5722] text-white" : "bg-black text-white"}`}>
-            DP
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs overflow-hidden ${isDarkMode ? "bg-[#FF5722] text-white" : "bg-black text-white"}`}>
+            {user?.photoURL ? <img src={user.photoURL} alt="User" /> : "DP"}
           </div>
+          <button 
+            onClick={handleLogout}
+            className={`p-2 rounded-full transition-colors ${isDarkMode ? "hover:bg-white/10 text-rose-400" : "hover:bg-black/10 text-rose-600"}`}
+            title="Sair"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </header>
 
@@ -446,16 +586,16 @@ export default function App() {
                 : "bg-white border-black/5 hover:bg-gray-50 text-gray-700"
             }`}>
               <Upload size={18} className={uploading ? "animate-bounce" : ""} />
-              <span className="text-sm">{uploading ? "Enviando..." : "Upload XLSX"}</span>
+              <span className="text-sm">{uploading ? "Importando para o Banco..." : "Importar Planilha"}</span>
               <input type="file" accept=".xlsx" className="hidden" onChange={handleFileUpload} disabled={uploading} />
             </label>
             <button 
-              onClick={() => syncScale()}
+              onClick={() => {}}
               disabled={loading}
               className="flex-1 lg:flex-none justify-center bg-[#FF5722] hover:bg-[#E64A19] text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5722]/20 active:scale-95 disabled:opacity-50"
             >
               <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-              <span className="text-sm">Sincronizar</span>
+              <span className="text-sm">Sincronizado</span>
             </button>
           </div>
         </div>
@@ -563,7 +703,7 @@ export default function App() {
                           onBlur={(e) => {
                             const val = e.target?.value;
                             if (val !== undefined) {
-                              setManualCoordinators(prev => ({ ...prev, [result.cidade]: val }));
+                              updateAssignment(result.cidade, { coordenador: val });
                             }
                             setEditingCoordinator(null);
                           }}
@@ -571,7 +711,7 @@ export default function App() {
                             if (e.key === 'Enter') {
                               const val = e.currentTarget?.value;
                               if (val !== undefined) {
-                                setManualCoordinators(prev => ({ ...prev, [result.cidade]: val }));
+                                updateAssignment(result.cidade, { coordenador: val });
                               }
                               setEditingCoordinator(null);
                             } else if (e.key === 'Escape') {
@@ -613,7 +753,7 @@ export default function App() {
                           onBlur={(e) => {
                             const val = e.target?.value;
                             if (val !== undefined) {
-                              setManualDrivers(prev => ({ ...prev, [result.cidade]: val }));
+                              updateAssignment(result.cidade, { motorista: val, encontrado: false });
                             }
                             setEditingDriver(null);
                           }}
@@ -621,7 +761,7 @@ export default function App() {
                             if (e.key === 'Enter') {
                               const val = e.currentTarget?.value;
                               if (val !== undefined) {
-                                setManualDrivers(prev => ({ ...prev, [result.cidade]: val }));
+                                updateAssignment(result.cidade, { motorista: val, encontrado: false });
                               }
                               setEditingDriver(null);
                             } else if (e.key === 'Escape') {
@@ -713,6 +853,7 @@ export default function App() {
                         placeholder="Adicionar observação..." 
                         value={observacoes[result.cidade] || ""}
                         onChange={(e) => setObservacoes(prev => ({ ...prev, [result.cidade]: e.target.value }))}
+                        onBlur={(e) => updateAssignment(result.cidade, { observacao: e.target.value })}
                         className={`w-full bg-transparent border-b py-1.5 pr-8 text-xs focus:outline-none transition-colors resize-none ${
                           isDarkMode ? "border-white/10 focus:border-[#FF5722]" : "border-black/10 focus:border-[#FF5722]"
                         }`}

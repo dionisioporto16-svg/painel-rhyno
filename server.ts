@@ -446,6 +446,228 @@ app.get("/api/sync", async (req, res) => {
   }
 });
 
+app.get("/api/import-all", async (req, res) => {
+  try {
+    if (!fs.existsSync(EXCEL_PATH)) {
+      return res.status(404).json({ error: "Arquivo escala.xlsx não encontrado no diretório data/" });
+    }
+
+    const workbook = readFile(EXCEL_PATH);
+    const now = new Date();
+    const brTimeStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+    const brTime = new Date(brTimeStr);
+    const targetMonth = req.query.month ? parseInt(req.query.month as string) : (brTime.getMonth() + 1);
+    const targetYear = brTime.getFullYear();
+    
+    // Get days in month
+    const daysInMonth = new Date(targetYear, targetMonth, 0).getDate();
+    const allSchedules = [];
+
+    for (let targetDay = 1; targetDay <= daysInMonth; targetDay++) {
+      const allAtivos: any[] = [];
+      
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const data = utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+        
+        const sheetNameNormalized = normalizeText(sheetName);
+        let sheetCity = "";
+        for (const [cidade, aliases] of Object.entries(CIDADE_ALIASES)) {
+          if (sheetNameNormalized.includes(normalizeText(cidade)) || aliases.some(a => sheetNameNormalized.includes(a))) {
+            sheetCity = cidade;
+            break;
+          }
+        }
+
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(data.length, 40); i++) {
+          const row = data[i];
+          if (!row) continue;
+          const rowStr = row.join(" ").toLowerCase();
+          if (rowStr.includes("colaborador") || rowStr.includes("motorista")) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        if (headerRowIndex === -1) return;
+
+        const headers = Array.from(data[headerRowIndex] || []).map(h => String(h || "").toLowerCase().trim());
+        let colNome = headers.findIndex(h => h && (h.includes("colaborador") || h.includes("motorista") || h === "nome" || h.includes("nome do")));
+        let colCidade = headers.findIndex(h => h && (h.includes("cidade") || h.includes("filial") || h.includes("unidade") || h.includes("operação") || h.includes("operacao")));
+        let colUF = headers.findIndex(h => h && (h === "uf" || h === "estado" || h === "est"));
+        let colCoord = headers.findIndex(h => h && (h.includes("coordenador") || h.includes("coord") || h.includes("supervisor") || h.includes("gestor") || h.includes("lider")));
+        
+        let colDia = -1;
+        const targetDayStr = targetDay.toString().padStart(2, '0');
+        const targetMonthStr = targetMonth.toString().padStart(2, '0');
+
+        for (let j = 0; j < headers.length; j++) {
+          const cellVal = data[headerRowIndex][j];
+          const dateInfo = parseExcelDate(cellVal);
+          if (dateInfo && dateInfo.day === targetDay && (dateInfo.month === 0 || dateInfo.month === targetMonth)) {
+            colDia = j;
+            break;
+          }
+        }
+
+        if (colDia === -1 && headerRowIndex > 0) {
+          const rowAbove = data[headerRowIndex - 1];
+          for (let j = 0; j < rowAbove.length; j++) {
+            const dateInfo = parseExcelDate(rowAbove[j]);
+            if (dateInfo && dateInfo.day === targetDay && (dateInfo.month === 0 || dateInfo.month === targetMonth)) {
+              colDia = j;
+              break;
+            }
+          }
+        }
+
+        if (colDia === -1) {
+          const monthsShort = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+          const mesAbrev = monthsShort[targetMonth - 1];
+          for (let j = 0; j < headers.length; j++) {
+            const hStr = String(headers[j] || "").toLowerCase();
+            if (hStr.includes(targetDay.toString())) {
+              if (hStr.includes(mesAbrev) || hStr.includes(targetMonthStr) || hStr.includes("/" + targetMonth) || hStr.includes("-" + targetMonth)) {
+                colDia = j;
+                break;
+              }
+            }
+          }
+        }
+
+        if (colNome === -1 || colDia === -1) {
+          if (colDia !== -1 && colNome === -1) {
+             for (let j = 0; j < headers.length; j++) {
+               if (j === colDia) continue;
+               let countStrings = 0;
+               for (let rowIdx = headerRowIndex + 1; rowIdx < Math.min(data.length, headerRowIndex + 15); rowIdx++) {
+                 const val = data[rowIdx] ? data[rowIdx][j] : null;
+                 if (val && typeof val === 'string' && val.trim().length > 8) countStrings++;
+               }
+               if (countStrings >= 3) {
+                 colNome = j;
+                 break;
+               }
+             }
+          }
+          if (colNome === -1 || colDia === -1) return;
+        }
+
+        for (let i = headerRowIndex + 1; i < data.length; i++) {
+          const row = data[i];
+          const nome = String(row[colNome] || "").trim();
+          const status = String(row[colDia] || "").trim().toUpperCase();
+          let cidadeRaw = colCidade !== -1 ? String(row[colCidade] || "").trim() : "";
+          const ufRaw = colUF !== -1 ? String(row[colUF] || "").trim().toUpperCase() : "";
+          const coordenadorRaw = colCoord !== -1 ? String(row[colCoord] || "").trim() : "";
+
+          const looksLikeShift = /^\d[º°]?[tT]$/.test(cidadeRaw) || 
+                                 cidadeRaw.toLowerCase().includes("turno") || 
+                                 cidadeRaw.toLowerCase().includes("folguista") ||
+                                 cidadeRaw.toLowerCase().includes("prei");
+          
+          if ((!cidadeRaw || looksLikeShift) && sheetCity) {
+            cidadeRaw = sheetCity;
+          }
+
+          if (!cidadeRaw || looksLikeShift) {
+            if (ufRaw === "MT") cidadeRaw = "RONDONÓPOLIS";
+            if (ufRaw === "SP" && !cidadeRaw) cidadeRaw = "SÃO JOSÉ DO RIO PRETO";
+          }
+
+          if (nome && STATUS_ATIVO.includes(status)) {
+            allAtivos.push({
+              nome: normalizeText(nome),
+              nomeOriginal: nome,
+              cidadeRaw: normalizeText(cidadeRaw),
+              status,
+              coordenador: coordenadorRaw
+            });
+          }
+        }
+      });
+
+      const results = Object.entries(OPERACOES).map(([cidade, nomesChave]) => {
+        const candidatosCidade = allAtivos.filter(a => {
+          const normCidade = normalizeText(cidade);
+          const normCidadeRaw = normalizeText(a.cidadeRaw || "");
+          const aliases = CIDADE_ALIASES[cidade] || [];
+          const matchCidade = normCidadeRaw.includes(normCidade) || 
+                             normCidade.includes(normCidadeRaw) ||
+                             aliases.some(alias => {
+                               const normAlias = normalizeText(alias);
+                               return normCidadeRaw.includes(normAlias) || normAlias.includes(normCidadeRaw);
+                             });
+          if (matchCidade) return true;
+          if (!a.cidadeRaw || a.cidadeRaw === "") {
+            return nomesChave.some(m => a.nome.includes(normalizeText(m)));
+          }
+          return false;
+        });
+
+        const alguemEmRede = candidatosCidade.find(c => c.status.includes("REDE"));
+        if (alguemEmRede) {
+          return { cidade, motorista: alguemEmRede.nomeOriginal, encontrado: true, status: "REDE", coordenador: alguemEmRede.coordenador || null };
+        }
+
+        const encontrados: any[] = [];
+        const motoristasVistos = new Set();
+        const fuse = new Fuse(candidatosCidade.length > 0 ? candidatosCidade : allAtivos, {
+          keys: ["nome"],
+          threshold: candidatosCidade.length > 0 ? 0.45 : 0.3
+        });
+
+        for (const chave of nomesChave) {
+          const searchResults = fuse.search(normalizeText(chave));
+          if (searchResults.length > 0) {
+            const item = searchResults[0].item;
+            if (!motoristasVistos.has(item.nomeOriginal)) {
+              encontrados.push(item);
+              motoristasVistos.add(item.nomeOriginal);
+            }
+          }
+        }
+
+        if (encontrados.length > 0) {
+          const validos = encontrados.filter(e => e.status !== "F" && e.status !== "FOLGA");
+          if (validos.length > 0) {
+            validos.sort((a, b) => {
+              const getPriority = (s: string) => { if (s === "S") return 100; if (s === "REDE") return 50; return 1; };
+              return getPriority(b.status) - getPriority(a.status);
+            });
+            const principal = validos[0];
+            return { cidade, motorista: principal.nomeOriginal, encontrado: true, status: principal.status, coordenador: principal.coordenador || null };
+          }
+        }
+
+        const candidatosValidos = candidatosCidade.filter(c => c.status !== "F" && c.status !== "FOLGA" && STATUS_ATIVO.includes(c.status));
+        if (candidatosValidos.length > 0) {
+          candidatosValidos.sort((a, b) => {
+            const getPriority = (s: string) => { if (s === "S") return 100; if (s === "REDE") return 50; return 1; };
+            return getPriority(b.status) - getPriority(a.status);
+          });
+          const fallback = candidatosValidos[0];
+          return { cidade, motorista: fallback.nomeOriginal, encontrado: true, status: fallback.status, coordenador: fallback.coordenador || null };
+        }
+
+        return { cidade, motorista: null, encontrado: false, status: null, coordenador: null };
+      });
+
+      allSchedules.push({
+        date: `${targetYear}-${targetMonth.toString().padStart(2, '0')}-${targetDay.toString().padStart(2, '0')}`,
+        results
+      });
+    }
+
+    res.json({ schedules: allSchedules });
+
+  } catch (error: any) {
+    console.error("[API Import Error]:", error);
+    res.status(500).json({ error: "Erro interno ao importar escala: " + (error.message || "Erro desconhecido") });
+  }
+});
+
 // API 404 Handler - Must be after all API routes but before Vite/Static
 app.use("/api/*", (req, res) => {
   res.status(404).json({ error: `Rota API não encontrada: ${req.originalUrl}` });

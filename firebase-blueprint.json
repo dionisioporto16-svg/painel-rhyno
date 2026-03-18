@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Driver assignment for a specific city on a specific date",
+      "type": "object",
+      "properties": {
+        "cidade": { "type": "string" },
+        "motorista": { "type": "string" },
+        "status": { "type": "string" },
+        "coordenador": { "type": "string" },
+        "isRede": { "type": "boolean" },
+        "intervaloOk": { "type": "boolean" },
+        "observacao": { "type": "string" },
+        "encontrado": { "type": "boolean" }
+      },
+      "required": ["cidade"]
+    }
+  },
+  "firestore": {
+    "schedules/{date}/assignments/{cidade}": {
+      "schema": "Assignment",
+      "description": "Driver assignment for a city on a given date"
+    }
+  }
+}
