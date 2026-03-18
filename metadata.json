@@ -1,0 +1,5 @@
+{
+  "name": "Automador de Escalas e Ponto",
+  "description": "Sistema para automação de conferência de escalas, batida de ponto e alinhamento de intervalos.",
+  "requestFramePermissions": []
+}
