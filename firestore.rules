@@ -101,45 +101,27 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      allow create: if isAdmin() && isValidUser(request.resource.data);
-      allow update: if isAdmin() && isValidUser(request.resource.data);
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /schedules/{date}/assignments/{cidade=**} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isValidAssignment(request.resource.data);
-      allow update: if isAuthenticated() && isValidAssignment(request.resource.data);
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /schedules/{date}/results/{cidade=**} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isValidResult(request.resource.data);
-      allow update: if isAuthenticated() && isValidResult(request.resource.data);
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /schedules/{date}/observacoes/{cidade=**} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isValidObservacao(request.resource.data);
-      allow update: if isAuthenticated() && isValidObservacao(request.resource.data);
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /schedules/{date}/shiftItems/{itemId=**} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isValidShiftItem(request.resource.data);
-      allow update: if isAuthenticated() && isValidShiftItem(request.resource.data);
-      allow delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     match /schedules/{date}/shiftChat/{chatId=**} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isValidChatMessage(request.resource.data);
-      allow update: if isAuthenticated() && isValidChatMessage(request.resource.data);
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
   }
 }

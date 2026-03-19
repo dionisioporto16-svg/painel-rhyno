@@ -804,6 +804,7 @@ export default function App() {
               {format(currentTime, "HH:mm:ss")}
             </span>
           </div>
+
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
             className={`p-2 rounded-full transition-colors ${isDarkMode ? "bg-white/5 hover:bg-white/10 text-yellow-400" : "bg-black/5 hover:bg-black/10 text-indigo-600"}`}
