@@ -414,9 +414,11 @@ export default function App() {
   const toggleManualRede = (cidade: string, currentIsRede: boolean) => {
     const isNowRede = !currentIsRede;
     const updates: any = { isRede: isNowRede };
-    if (isNowRede) {
-      updates.intervaloOk = true;
-    }
+    
+    // Se está ativando REDE, marca intervalo como OK automaticamente
+    // Se está desativando REDE, desmarca intervalo para que volte para pendentes
+    updates.intervaloOk = isNowRede;
+    
     updateAssignment(cidade, updates);
   };
 
