@@ -499,6 +499,7 @@ export default function App() {
         os: "",
         descritivo: "",
         ciclo: "",
+        completed: false,
         createdAt: new Date().toISOString()
       });
       console.log("Item added successfully");
@@ -508,7 +509,7 @@ export default function App() {
     }
   };
 
-  const updateShiftItem = async (id: string, field: string, value: string) => {
+  const updateShiftItem = async (id: string, field: string, value: any) => {
     const path = `schedules/${selectedDate}_${selectedTurno}/shiftItems/${id}`;
     try {
       const itemRef = doc(db, `schedules/${selectedDate}_${selectedTurno}/shiftItems`, id);
@@ -1122,20 +1123,14 @@ export default function App() {
                 key={result.cidade}
                 className={`group rounded-3xl shadow-sm border transition-all duration-300 hover:shadow-md overflow-hidden flex flex-col ${
                   isDarkMode ? "bg-[#141414] border-white/5" : "bg-white border-black/5"
-                } ${isIntervaloOk ? "opacity-60 scale-[0.98] grayscale-[0.2]" : ""}`}
+                }`}
               >
                 {/* Header */}
                 <div className={`px-6 py-5 border-b flex justify-between items-start ${isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5"}`}>
                   <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={isIntervaloOk}
-                      onChange={() => toggleIntervalo(result.cidade)}
-                      className="w-5 h-5 rounded border-gray-300 text-[#FF5722] focus:ring-[#FF5722]"
-                    />
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-col">
-                        <h3 className={`text-xl font-black tracking-tighter leading-none mb-2 ${isDarkMode ? "text-white" : "text-gray-900"} ${isIntervaloOk ? "line-through" : ""}`}>
+                        <h3 className={`text-xl font-black tracking-tighter leading-none mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                           {formatCityName(result.cidade)}
                         </h3>
                       <div className="flex items-center gap-2">
@@ -1188,6 +1183,7 @@ export default function App() {
                           </button>
                         </>
                       )}
+                    </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs font-bold opacity-70">
@@ -1396,8 +1392,8 @@ export default function App() {
               </motion.div>
             );
           })}
-          </AnimatePresence>
-        </div>
+        </AnimatePresence>
+      </div>
 
         <div className="mt-8 flex justify-end relative gap-4">
           <motion.button
@@ -1593,36 +1589,186 @@ export default function App() {
                     { id: "fixed", label: "Informações Fixas", color: "text-yellow-400", items: shiftItems.fixed },
                     { id: "daily", label: "Rotina Diária", color: "text-emerald-400", items: shiftItems.daily },
                     { id: "coverage", label: "Coberturas Rede", color: "text-[#FF5722]", items: shiftItems.coverage },
-                  ].map((section) => (
-                    <div key={section.id} className="flex flex-col gap-4">
+                  ].map((section, idx) => {
+                    const filteredItems = section.items.filter(it => {
+                      if (statusFilter === "Completos") return false;
+                      return !it.completed;
+                    });
+
+                    if (statusFilter === "Completos") return null;
+                    if (statusFilter === "Pendentes" && filteredItems.length === 0 && section.items.length > 0) return null;
+
+                    return (
+                      <motion.div 
+                        key={section.id} 
+                        layout
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className="flex flex-col gap-4"
+                      >
+                        <div className="flex justify-between items-center px-2">
+                          <label className={`text-xs font-black uppercase tracking-[0.2em] opacity-80 ${section.color}`}>
+                            {section.label}
+                          </label>
+                          <motion.button 
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => addShiftItem(section.id)}
+                            className={`p-2.5 rounded-xl transition-all cursor-pointer ${isDarkMode ? "bg-white/10 hover:bg-white/20 text-white" : "bg-black/5 hover:bg-black/10 text-black"}`}
+                          >
+                            <Plus size={18} />
+                          </motion.button>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          {filteredItems.length === 0 ? (
+                            <motion.div 
+                              layout
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className={`p-4 rounded-2xl border border-dashed text-center text-xs opacity-40 ${isDarkMode ? "border-white/10" : "border-black/10"}`}
+                            >
+                              {section.items.length > 0 ? "Todos os itens concluídos" : "Nenhum item adicionado"}
+                            </motion.div>
+                          ) : (
+                            <div className="flex flex-col gap-3">
+                              <AnimatePresence mode="popLayout">
+                                {filteredItems.map((item) => (
+                                  <motion.div 
+                                    layout
+                                    layoutId={item.id}
+                                    key={item.id}
+                                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                    className={`p-4 rounded-2xl border transition-all ${isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-black/5 shadow-sm"}`}
+                                  >
+                                    <div className="flex items-start gap-4 mb-3">
+                                      <div className="pt-1">
+                                        <input 
+                                          type="checkbox"
+                                          checked={item.completed || false}
+                                          onChange={(e) => updateShiftItem(item.id, "completed", e.target.checked)}
+                                          className="w-4 h-4 rounded border-gray-300 text-[#FF5722] focus:ring-[#FF5722] cursor-pointer"
+                                        />
+                                      </div>
+                                      <div className="flex-1 grid grid-cols-12 gap-3">
+                                        <div className="col-span-2">
+                                          <input 
+                                            placeholder="Turno"
+                                            value={item.turno || ""}
+                                            onChange={(e) => updateShiftItem(item.id, "turno", e.target.value)}
+                                            className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                          />
+                                        </div>
+                                        <div className="col-span-3">
+                                          <input 
+                                            placeholder="Analista"
+                                            value={item.analista}
+                                            onChange={(e) => updateShiftItem(item.id, "analista", e.target.value)}
+                                            className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                          />
+                                        </div>
+                                        <div className="col-span-3">
+                                          <input 
+                                            placeholder="Cidade"
+                                            value={item.cidade || ""}
+                                            onChange={(e) => updateShiftItem(item.id, "cidade", e.target.value)}
+                                            className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                          />
+                                        </div>
+                                        <div className="col-span-2">
+                                          <input 
+                                            placeholder="O.S"
+                                            value={item.os}
+                                            onChange={(e) => updateShiftItem(item.id, "os", e.target.value)}
+                                            className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                          />
+                                        </div>
+                                        <div className="col-span-2 flex justify-between items-center">
+                                          <input 
+                                            placeholder="Ciclo"
+                                            value={item.ciclo}
+                                            onChange={(e) => updateShiftItem(item.id, "ciclo", e.target.value)}
+                                            className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                          />
+                                          <motion.button 
+                                            whileHover={{ scale: 1.2, color: "#ef4444" }}
+                                            whileTap={{ scale: 0.8 }}
+                                            onClick={() => deleteShiftItem(item.id)}
+                                            className="text-red-500/50 transition-colors ml-2"
+                                          >
+                                            <X size={14} />
+                                          </motion.button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <textarea 
+                                      rows={2}
+                                      placeholder="Descritivo..."
+                                      value={item.descritivo}
+                                      onChange={(e) => updateShiftItem(item.id, "descritivo", e.target.value)}
+                                      className={`w-full bg-transparent text-xs focus:outline-none resize-none ml-8 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
+                                    />
+                                  </motion.div>
+                                ))}
+                              </AnimatePresence>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* Completed Items Section */}
+                  {(statusFilter === "Todos os Status" || statusFilter === "Completos") && (
+                    <motion.div 
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex flex-col gap-4 mt-4 pt-10 border-t border-dashed border-white/10"
+                    >
                       <div className="flex justify-between items-center px-2">
-                        <label className={`text-xs font-black uppercase tracking-[0.2em] opacity-80 ${section.color}`}>
-                          {section.label}
+                        <label className="text-xs font-black uppercase tracking-[0.2em] opacity-80 text-emerald-500">
+                          Itens Concluídos
                         </label>
-                        <button 
-                          onClick={() => addShiftItem(section.id)}
-                          className={`p-2.5 rounded-xl transition-all cursor-pointer ${isDarkMode ? "bg-white/10 hover:bg-white/20 text-white" : "bg-black/5 hover:bg-black/10 text-black"}`}
-                        >
-                          <Plus size={18} />
-                        </button>
                       </div>
 
-                      <div className="flex flex-col gap-2">
-                        {section.items.length === 0 ? (
-                          <div className={`p-4 rounded-2xl border border-dashed text-center text-xs opacity-40 ${isDarkMode ? "border-white/10" : "border-black/10"}`}>
-                            Nenhum item adicionado
-                          </div>
-                        ) : (
-                          <div className="flex flex-col gap-3">
-                            {section.items.map((item) => (
-                              <div key={item.id} className={`p-4 rounded-2xl border transition-all ${isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-black/5 shadow-sm"}`}>
-                                <div className="grid grid-cols-12 gap-3 mb-3">
+                      <div className="flex flex-col gap-3">
+                        <AnimatePresence mode="popLayout">
+                          {[
+                            ...shiftItems.fixed,
+                            ...shiftItems.daily,
+                            ...shiftItems.coverage
+                          ].filter(it => it.completed).map((item) => (
+                            <motion.div 
+                              layout
+                              layoutId={item.id}
+                              key={item.id}
+                              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                              className={`p-4 rounded-2xl border transition-all ${
+                                isDarkMode ? "bg-emerald-500/5 border-emerald-500/20 opacity-60" : "bg-emerald-50 border-emerald-100 opacity-60"
+                              }`}
+                            >
+                              <div className="flex items-start gap-4 mb-3">
+                                <div className="pt-1">
+                                  <input 
+                                    type="checkbox"
+                                    checked={item.completed || false}
+                                    onChange={(e) => updateShiftItem(item.id, "completed", e.target.checked)}
+                                    className="w-4 h-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                                  />
+                                </div>
+                                <div className="flex-1 grid grid-cols-12 gap-3">
                                   <div className="col-span-2">
                                     <input 
                                       placeholder="Turno"
                                       value={item.turno || ""}
                                       onChange={(e) => updateShiftItem(item.id, "turno", e.target.value)}
-                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b line-through opacity-50 ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
                                     />
                                   </div>
                                   <div className="col-span-3">
@@ -1630,7 +1776,7 @@ export default function App() {
                                       placeholder="Analista"
                                       value={item.analista}
                                       onChange={(e) => updateShiftItem(item.id, "analista", e.target.value)}
-                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b line-through opacity-50 ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
                                     />
                                   </div>
                                   <div className="col-span-3">
@@ -1638,7 +1784,7 @@ export default function App() {
                                       placeholder="Cidade"
                                       value={item.cidade || ""}
                                       onChange={(e) => updateShiftItem(item.id, "cidade", e.target.value)}
-                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b line-through opacity-50 ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
                                     />
                                   </div>
                                   <div className="col-span-2">
@@ -1646,7 +1792,7 @@ export default function App() {
                                       placeholder="O.S"
                                       value={item.os}
                                       onChange={(e) => updateShiftItem(item.id, "os", e.target.value)}
-                                      className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                      className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b line-through opacity-50 ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
                                     />
                                   </div>
                                   <div className="col-span-2 flex justify-between items-center">
@@ -1654,30 +1800,37 @@ export default function App() {
                                       placeholder="Ciclo"
                                       value={item.ciclo}
                                       onChange={(e) => updateShiftItem(item.id, "ciclo", e.target.value)}
-                                      className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                      className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b line-through opacity-50 ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
                                     />
-                                    <button 
+                                    <motion.button 
+                                      whileHover={{ scale: 1.2, color: "#ef4444" }}
+                                      whileTap={{ scale: 0.8 }}
                                       onClick={() => deleteShiftItem(item.id)}
-                                      className="text-red-500/50 hover:text-red-500 transition-colors ml-2"
+                                      className="text-red-500/50 transition-colors ml-2"
                                     >
                                       <X size={14} />
-                                    </button>
+                                    </motion.button>
                                   </div>
                                 </div>
-                                <textarea 
-                                  rows={2}
-                                  placeholder="Descritivo..."
-                                  value={item.descritivo}
-                                  onChange={(e) => updateShiftItem(item.id, "descritivo", e.target.value)}
-                                  className={`w-full bg-transparent text-xs focus:outline-none resize-none ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
-                                />
                               </div>
-                            ))}
+                              <textarea 
+                                rows={2}
+                                placeholder="Descritivo..."
+                                value={item.descritivo}
+                                onChange={(e) => updateShiftItem(item.id, "descritivo", e.target.value)}
+                                className={`w-full bg-transparent text-xs focus:outline-none resize-none ml-8 line-through opacity-50 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
+                              />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                        {([...shiftItems.fixed, ...shiftItems.daily, ...shiftItems.coverage].filter(it => it.completed).length === 0) && (
+                          <div className={`p-4 rounded-2xl border border-dashed text-center text-xs opacity-40 ${isDarkMode ? "border-white/10" : "border-black/10"}`}>
+                            Nenhum item concluído ainda
                           </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-3">
