@@ -6,25 +6,20 @@ service cloud.firestore {
     // Assumed Data Model
     // ===============================================================
     //
-    // Collection: users
-    // Document ID: userId
-    // Fields:
-    //   - role: string (required, 'admin' or 'user')
-    //   - email: string (required)
-    //
-    // Collection: schedules/{date}/assignments
+    // Collection: schedules/{date}/results
     // Document ID: cidade
     // Fields:
     //   - cidade: string (required)
-    //   - motorista: string (optional)
-    //   - status: string (optional)
-    //   - coordenador: string (optional)
-    //   - isRede: boolean (optional)
-    //   - intervaloOk: boolean (optional)
-    //   - observacao: string (optional)
-    //   - encontrado: boolean (optional)
-    //   - kmInicial: number (optional)
-    //   - kmFinal: number (optional)
+    //   - motorista: string (required)
+    //   - status: string (required)
+    //   - coordenador: string (required)
+    //   - kmInicial: number (required)
+    //   - kmFinal: number (required)
+    //
+    // Collection: schedules/{date}/observacoes
+    // Document ID: cidade
+    // Fields:
+    //   - text: string (required)
     //
     // ===============================================================
 
@@ -58,10 +53,47 @@ service cloud.firestore {
              (!('kmFinal' in data) || data.kmFinal == null || data.kmFinal is number);
     }
 
+    function isPositive(data, field) {
+      return data[field] is number && data[field] >= 0;
+    }
+
+    function isValidResult(data) {
+      return data.keys().hasAll(['cidade', 'motorista', 'status', 'coordenador', 'kmInicial', 'kmFinal']) &&
+             data.cidade is string && data.cidade.size() > 0 && data.cidade.size() < 100 &&
+             data.motorista is string && data.motorista.size() > 0 && data.motorista.size() < 100 &&
+             data.status is string && data.status.size() > 0 && data.status.size() < 50 &&
+             data.coordenador is string && data.coordenador.size() > 0 && data.coordenador.size() < 100 &&
+             isPositive(data, 'kmInicial') &&
+             isPositive(data, 'kmFinal');
+    }
+
+    function isValidObservacao(data) {
+      return data.keys().hasAll(['text']) &&
+             data.text is string && data.text.size() >= 0 && data.text.size() < 2000;
+    }
+
     function isValidUser(data) {
       return data.keys().hasAll(['role', 'email']) &&
              data.role in ['admin', 'user'] &&
              data.email is string && data.email.size() > 0 && data.email.size() < 100;
+    }
+
+    function isValidShiftItem(data) {
+      return data.keys().hasAll(['section', 'createdAt']) &&
+             data.section in ['fixed', 'daily', 'coverage', 'dateFunctions'] &&
+             data.createdAt is string &&
+             (!('analista' in data) || data.analista is string) &&
+             (!('os' in data) || data.os is string) &&
+             (!('descritivo' in data) || data.descritivo is string) &&
+             (!('ciclo' in data) || data.ciclo is string) &&
+             (!('turno' in data) || data.turno is string);
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['text', 'author', 'createdAt']) &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 2000 &&
+             data.author is string && data.author.size() > 0 && data.author.size() < 100 &&
+             data.createdAt is string;
     }
 
     // ===============================================================
@@ -75,11 +107,39 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /schedules/{date}/assignments/{cidade} {
+    match /schedules/{date}/assignments/{cidade=**} {
       allow read: if true;
-      allow create: if isValidAssignment(request.resource.data);
-      allow update: if isValidAssignment(request.resource.data);
-      allow delete: if true;
+      allow create: if isAuthenticated() && isValidAssignment(request.resource.data);
+      allow update: if isAuthenticated() && isValidAssignment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /schedules/{date}/results/{cidade=**} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidResult(request.resource.data);
+      allow update: if isAuthenticated() && isValidResult(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /schedules/{date}/observacoes/{cidade=**} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidObservacao(request.resource.data);
+      allow update: if isAuthenticated() && isValidObservacao(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /schedules/{date}/shiftItems/{itemId=**} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidShiftItem(request.resource.data);
+      allow update: if isAuthenticated() && isValidShiftItem(request.resource.data);
+      allow delete: if isAuthenticated();
+    }
+
+    match /schedules/{date}/shiftChat/{chatId=**} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidChatMessage(request.resource.data);
+      allow update: if isAuthenticated() && isValidChatMessage(request.resource.data);
+      allow delete: if isAdmin();
     }
   }
 }

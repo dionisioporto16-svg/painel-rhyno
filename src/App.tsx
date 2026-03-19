@@ -27,13 +27,69 @@ import {
   Pencil,
   LogOut,
   BarChart3,
-  Gauge
+  Gauge,
+  Plus,
+  Send,
+  FileSpreadsheet
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
+import * as XLSX from 'xlsx';
 import { ptBR } from "date-fns/locale";
 import { db } from "./firebase";
-import { collection, doc, onSnapshot, writeBatch, setDoc, getDocs } from "firebase/firestore";
+import { collection, doc, onSnapshot, writeBatch, setDoc, getDocs, deleteField, addDoc, deleteDoc, query, where, orderBy, getDocFromServer } from "firebase/firestore";
+import { auth } from "./firebase";
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 const OPERACOES: Record<string, string[]> = {
   "SANTA FÉ DO SUL": ["domingos neto", "domingos ferrantes", "rogerio molina", "rogerio"],
@@ -209,11 +265,94 @@ export default function App() {
   });
   const [currentTime, setCurrentTime] = useState(new Date());
   const [editingKM, setEditingKM] = useState<string | null>(null);
+  const [isShiftChangeModalOpen, setIsShiftChangeModalOpen] = useState(false);
+  const [shiftItems, setShiftItems] = useState<{
+    fixed: any[];
+    daily: any[];
+    coverage: any[];
+    dateFunctions: any[];
+  }>({ fixed: [], daily: [], coverage: [], dateFunctions: [] });
+  const [shiftChat, setShiftChat] = useState<any[]>([]);
+  const [newChatMessage, setNewChatMessage] = useState("");
 
   useEffect(() => {
     localStorage.setItem("painel_sub_tab", painelSubTab);
   }, [painelSubTab]);
   const [viaSearch, setViaSearch] = useState("");
+
+  const exportToExcel = async () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Arrays to store aggregated data
+    const allShiftData = [["Turno", "Seção", "Analista", "Cidade", "O.S", "Ciclo", "Descritivo"]];
+    const allDriversData = [["Turno", "Cidade", "Motorista", "Status", "Coordenador", "KM Inicial", "KM Final", "Observação"]];
+
+    // Iterate through shifts 1, 2, 3
+    for (const turno of ["1", "2", "3"]) {
+      // Fetch data for each shift
+      const shiftItemsPath = `schedules/${selectedDate}_${turno}/shiftItems`;
+      const shiftItemsSnapshot = await getDocs(collection(db, shiftItemsPath));
+      const items = shiftItemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+      const fixed = items.filter(i => i.section === "fixed");
+      const daily = items.filter(i => i.section === "daily");
+      const coverage = items.filter(i => i.section === "coverage");
+
+      // Add to shiftData
+      fixed.forEach(i => allShiftData.push([turno, "Informações Fixas", i.analista, i.cidade, i.os, i.ciclo, i.descritivo]));
+      daily.forEach(i => allShiftData.push([turno, "Rotina Diária", i.analista, i.cidade, i.os, i.ciclo, i.descritivo]));
+      coverage.forEach(i => allShiftData.push([turno, "Coberturas Rede", i.analista, i.cidade, i.os, i.ciclo, i.descritivo]));
+
+      // Fetch assignments for this shift
+      const assignmentsPath = `schedules/${selectedDate}_${turno}/assignments`;
+      const assignmentsSnapshot = await getDocs(collection(db, assignmentsPath));
+      const assignments = assignmentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      
+      // Fetch results for this shift
+      const driversPath = `schedules/${selectedDate}_${turno}/results`;
+      const driversSnapshot = await getDocs(collection(db, driversPath));
+      const drivers = driversSnapshot.docs.reduce((acc, doc) => {
+        acc[doc.id] = doc.data();
+        return acc;
+      }, {} as Record<string, any>);
+      
+      // Fetch observations for this shift
+      const obsPath = `schedules/${selectedDate}_${turno}/observacoes`;
+      const obsSnapshot = await getDocs(collection(db, obsPath));
+      const obsData = obsSnapshot.docs.reduce((acc, doc) => {
+        acc[doc.id] = doc.data().text;
+        return acc;
+      }, {} as Record<string, string>);
+
+      // Add to driversData
+      assignments.forEach(a => {
+        const r = drivers[a.id];
+        const status = r?.status || a.status || "PENDENTE";
+        allDriversData.push([
+          turno,
+          a.cidade,
+          r?.motorista || a.motorista || "NÃO IDENTIFICADO",
+          status,
+          r?.coordenador || a.coordenador || "NÃO IDENTIFICADO",
+          r?.kmInicial || "",
+          r?.kmFinal || "",
+          obsData[a.cidade] || ""
+        ]);
+      });
+    }
+    
+    const wsShift = XLSX.utils.aoa_to_sheet(allShiftData);
+    // Auto-width for Shift Sheet
+    wsShift['!cols'] = allShiftData[0].map(() => ({ wch: 15 }));
+    XLSX.utils.book_append_sheet(wb, wsShift, "Troca de Turno");
+
+    const wsDrivers = XLSX.utils.aoa_to_sheet(allDriversData);
+    // Auto-width for Drivers Sheet
+    wsDrivers['!cols'] = allDriversData[0].map(() => ({ wch: 15 }));
+    XLSX.utils.book_append_sheet(wb, wsDrivers, "Motoristas e Observações");
+    
+    XLSX.writeFile(wb, `resumo do turno (${selectedDate}).xlsx`);
+  };
 
   const handleCopy = (cidade: string, motorista: string | null, isRede: boolean) => {
     const obs = observacoes[cidade];
@@ -294,6 +433,100 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("selected_turno", selectedTurno);
   }, [selectedTurno]);
+
+  useEffect(() => {
+    const itemsRef = collection(db, `schedules/${selectedDate}_${selectedTurno}/shiftItems`);
+    const q = query(itemsRef, orderBy("createdAt", "asc"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log("onSnapshot fired for shiftItems, count:", snapshot.size);
+      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setShiftItems({
+        fixed: items.filter((it: any) => it.section === "fixed"),
+        daily: items.filter((it: any) => it.section === "daily"),
+        coverage: items.filter((it: any) => it.section === "coverage"),
+        dateFunctions: items.filter((it: any) => it.section === "dateFunctions")
+      });
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `schedules/${selectedDate}_${selectedTurno}/shiftItems`);
+    });
+    return () => unsubscribe();
+  }, [selectedDate, selectedTurno]);
+
+  useEffect(() => {
+    const chatRef = collection(db, `schedules/${selectedDate}_${selectedTurno}/shiftChat`);
+    const q = query(chatRef, orderBy("createdAt", "asc"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setShiftChat(messages);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `schedules/${selectedDate}_${selectedTurno}/shiftChat`);
+    });
+    return () => unsubscribe();
+  }, [selectedDate, selectedTurno]);
+
+  const sendChatMessage = async () => {
+    if (!newChatMessage.trim()) return;
+    const path = `schedules/${selectedDate}_${selectedTurno}/shiftChat`;
+    try {
+      const chatRef = collection(db, path);
+      await addDoc(chatRef, {
+        text: newChatMessage,
+        author: auth.currentUser?.email || "Usuário",
+        createdAt: new Date().toISOString()
+      });
+      setNewChatMessage("");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  useEffect(() => {
+    console.log("Current shiftItems state:", shiftItems);
+  }, [shiftItems]);
+
+  const addShiftItem = async (section: string) => {
+    console.log("addShiftItem called for section:", section);
+    const path = `schedules/${selectedDate}_${selectedTurno}/shiftItems`;
+    console.log("Target path:", path);
+    try {
+      const itemsRef = collection(db, path);
+      await addDoc(itemsRef, {
+        section,
+        analista: "",
+        cidade: "",
+        os: "",
+        descritivo: "",
+        ciclo: "",
+        createdAt: new Date().toISOString()
+      });
+      console.log("Item added successfully");
+    } catch (error) {
+      console.error("Error adding shift item:", error);
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  const updateShiftItem = async (id: string, field: string, value: string) => {
+    const path = `schedules/${selectedDate}_${selectedTurno}/shiftItems/${id}`;
+    try {
+      const itemRef = doc(db, `schedules/${selectedDate}_${selectedTurno}/shiftItems`, id);
+      await setDoc(itemRef, { [field]: value }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const deleteShiftItem = async (id: string) => {
+    const path = `schedules/${selectedDate}_${selectedTurno}/shiftItems/${id}`;
+    try {
+      const itemRef = doc(db, `schedules/${selectedDate}_${selectedTurno}/shiftItems`, id);
+      await deleteDoc(itemRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  };
 
   useEffect(() => {
     const assignmentsRef = collection(db, `schedules/${selectedDate}_${selectedTurno}/assignments`);
@@ -538,10 +771,17 @@ export default function App() {
           {[
             { icon: LayoutDashboard, label: "Painel", id: "painel" },
             { icon: Truck, label: "VIA", id: "via" },
+            { icon: RefreshCw, label: "Troca de Turno", id: "shift_change_btn" },
           ].map((item) => (
             <button 
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                if (item.id === "shift_change_btn") {
+                  setIsShiftChangeModalOpen(true);
+                } else {
+                  setActiveTab(item.id);
+                }
+              }}
               className={`flex items-center gap-2 text-sm font-semibold transition-all ${
                 activeTab === item.id 
                   ? "text-[#FF5722]" 
@@ -886,11 +1126,18 @@ export default function App() {
               >
                 {/* Header */}
                 <div className={`px-6 py-5 border-b flex justify-between items-start ${isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5"}`}>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-col">
-                      <h3 className={`text-xl font-black tracking-tighter leading-none mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                        {formatCityName(result.cidade)}
-                      </h3>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isIntervaloOk}
+                      onChange={() => toggleIntervalo(result.cidade)}
+                      className="w-5 h-5 rounded border-gray-300 text-[#FF5722] focus:ring-[#FF5722]"
+                    />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-col">
+                        <h3 className={`text-xl font-black tracking-tighter leading-none mb-2 ${isDarkMode ? "text-white" : "text-gray-900"} ${isIntervaloOk ? "line-through" : ""}`}>
+                          {formatCityName(result.cidade)}
+                        </h3>
                       <div className="flex items-center gap-2">
                         <span className={`text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded border ${isDarkMode ? "bg-[#FF5722]/10 border-[#FF5722]/20 text-[#FF5722]" : "bg-[#FF5722]/5 border-[#FF5722]/10 text-[#FF5722]"}`}>
                           {OPERACAO_METADATA[selectedTurno]?.[result.cidade]?.sigla || "OPS"}
@@ -1147,11 +1394,25 @@ export default function App() {
                   </div>
                 </div>
               </motion.div>
-            )})}
+            );
+          })}
           </AnimatePresence>
         </div>
 
-        <div className="mt-8 flex justify-end relative">
+        <div className="mt-8 flex justify-end relative gap-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={exportToExcel}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${
+              isDarkMode 
+                ? "bg-emerald-900/50 hover:bg-emerald-900/70 text-emerald-100" 
+                : "bg-emerald-100 hover:bg-emerald-200 text-emerald-800"
+            }`}
+          >
+            <FileSpreadsheet size={18} />
+            Exportar para Excel
+          </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -1289,6 +1550,201 @@ export default function App() {
         </div>
       </motion.footer>
 
+      {/* Shift Change Modal */}
+      <AnimatePresence>
+        {isShiftChangeModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShiftChangeModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className={`relative w-full max-w-2xl overflow-hidden rounded-3xl shadow-2xl ${
+                isDarkMode ? "bg-[#141414] border border-white/10" : "bg-white"
+              }`}
+            >
+              <div className="p-8 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-3 rounded-2xl bg-[#FF5722]/10 text-[#FF5722]">
+                    <RefreshCw size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight">Troca de Turno</h3>
+                    <div className="flex items-center gap-2">
+                      <p className={`text-xs font-bold uppercase tracking-widest opacity-50 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                        Finalização do Turno {selectedTurno}
+                      </p>
+                      <span className="w-1 h-1 rounded-full bg-gray-400 opacity-50" />
+                      <p className={`text-xs font-bold uppercase tracking-widest opacity-50 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                        {format(new Date(selectedDate + "T12:00:00"), "dd/MM/yyyy")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6 flex flex-col gap-10">
+                  {[
+                    { id: "fixed", label: "Informações Fixas", color: "text-yellow-400", items: shiftItems.fixed },
+                    { id: "daily", label: "Rotina Diária", color: "text-emerald-400", items: shiftItems.daily },
+                    { id: "coverage", label: "Coberturas Rede", color: "text-[#FF5722]", items: shiftItems.coverage },
+                  ].map((section) => (
+                    <div key={section.id} className="flex flex-col gap-4">
+                      <div className="flex justify-between items-center px-2">
+                        <label className={`text-xs font-black uppercase tracking-[0.2em] opacity-80 ${section.color}`}>
+                          {section.label}
+                        </label>
+                        <button 
+                          onClick={() => addShiftItem(section.id)}
+                          className={`p-2.5 rounded-xl transition-all cursor-pointer ${isDarkMode ? "bg-white/10 hover:bg-white/20 text-white" : "bg-black/5 hover:bg-black/10 text-black"}`}
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        {section.items.length === 0 ? (
+                          <div className={`p-4 rounded-2xl border border-dashed text-center text-xs opacity-40 ${isDarkMode ? "border-white/10" : "border-black/10"}`}>
+                            Nenhum item adicionado
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-3">
+                            {section.items.map((item) => (
+                              <div key={item.id} className={`p-4 rounded-2xl border transition-all ${isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-black/5 shadow-sm"}`}>
+                                <div className="grid grid-cols-12 gap-3 mb-3">
+                                  <div className="col-span-2">
+                                    <input 
+                                      placeholder="Turno"
+                                      value={item.turno || ""}
+                                      onChange={(e) => updateShiftItem(item.id, "turno", e.target.value)}
+                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                    />
+                                  </div>
+                                  <div className="col-span-3">
+                                    <input 
+                                      placeholder="Analista"
+                                      value={item.analista}
+                                      onChange={(e) => updateShiftItem(item.id, "analista", e.target.value)}
+                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                    />
+                                  </div>
+                                  <div className="col-span-3">
+                                    <input 
+                                      placeholder="Cidade"
+                                      value={item.cidade || ""}
+                                      onChange={(e) => updateShiftItem(item.id, "cidade", e.target.value)}
+                                      className={`w-full bg-transparent text-xs font-bold uppercase tracking-wider focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <input 
+                                      placeholder="O.S"
+                                      value={item.os}
+                                      onChange={(e) => updateShiftItem(item.id, "os", e.target.value)}
+                                      className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                    />
+                                  </div>
+                                  <div className="col-span-2 flex justify-between items-center">
+                                    <input 
+                                      placeholder="Ciclo"
+                                      value={item.ciclo}
+                                      onChange={(e) => updateShiftItem(item.id, "ciclo", e.target.value)}
+                                      className={`w-full bg-transparent text-xs font-bold focus:outline-none border-b ${isDarkMode ? "border-white/10 focus:border-white/30" : "border-black/10 focus:border-black/30"}`}
+                                    />
+                                    <button 
+                                      onClick={() => deleteShiftItem(item.id)}
+                                      className="text-red-500/50 hover:text-red-500 transition-colors ml-2"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                                <textarea 
+                                  rows={2}
+                                  placeholder="Descritivo..."
+                                  value={item.descritivo}
+                                  onChange={(e) => updateShiftItem(item.id, "descritivo", e.target.value)}
+                                  className={`w-full bg-transparent text-xs focus:outline-none resize-none ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setStatusFilter("Todos os Status")}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase ${statusFilter === "Todos os Status" ? "bg-[#FF5722] text-white" : isDarkMode ? "bg-white/5 text-gray-400" : "bg-black/5 text-gray-600"}`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter("Completos")}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase ${statusFilter === "Completos" ? "bg-emerald-500 text-white" : isDarkMode ? "bg-white/5 text-gray-400" : "bg-black/5 text-gray-600"}`}
+                    >
+                      Completos
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter("Pendentes")}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase ${statusFilter === "Pendentes" ? "bg-rose-500 text-white" : isDarkMode ? "bg-white/5 text-gray-400" : "bg-black/5 text-gray-600"}`}
+                    >
+                      Pendentes
+                    </button>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (confirm("Deseja realmente limpar todos os dados manuais deste turno? (Motoristas, KM e Observações)")) {
+                        const batch = writeBatch(db);
+                        const assignmentsRef = collection(db, `schedules/${selectedDate}_${selectedTurno}/assignments`);
+                        const snapshot = await getDocs(assignmentsRef);
+                        
+                        snapshot.docs.forEach(doc => {
+                          batch.update(doc.ref, {
+                            manualDriver: deleteField(),
+                            kmInicial: deleteField(),
+                            kmFinal: deleteField(),
+                            observacao: deleteField(),
+                            isRede: deleteField(),
+                            intervaloOk: false
+                          });
+                        });
+                        
+                        await batch.commit();
+                        setIsShiftChangeModalOpen(false);
+                        alert("Dados do turno limpos com sucesso!");
+                      }
+                    }}
+                    className={`w-full py-4 rounded-2xl font-bold text-sm transition-all border ${
+                      isDarkMode 
+                        ? "border-white/10 hover:bg-white/5 text-white" 
+                        : "border-black/10 hover:bg-black/5 text-black"
+                    }`}
+                  >
+                    Limpar Dados Manuais
+                  </button>
+                  <button
+                    onClick={() => setIsShiftChangeModalOpen(false)}
+                    className="w-full py-4 rounded-2xl font-bold text-sm bg-[#FF5722] hover:bg-[#E64A19] text-white shadow-lg shadow-[#FF5722]/20 transition-all"
+                  >
+                    Finalizar e Fechar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* KM Modal */}
       <AnimatePresence>
         {editingKM && (
@@ -1334,7 +1790,7 @@ export default function App() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">KM Inicial</label>
+                      <label className="text-xs font-bold uppercase tracking-widest text-gray-500">KM Inicial</label>
                       <input 
                         type="text"
                         inputMode="numeric"
@@ -1352,7 +1808,7 @@ export default function App() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">KM Final</label>
+                      <label className="text-xs font-bold uppercase tracking-widest text-gray-500">KM Final</label>
                       <input 
                         type="text"
                         inputMode="numeric"

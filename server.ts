@@ -711,12 +711,15 @@ app.use("/api/*", (req, res) => {
 });
 
 async function startServer() {
+  console.log("[Server] Starting initialization...");
   try {
     if (process.env.NODE_ENV !== "production") {
+      console.log("[Server] Initializing Vite in middleware mode...");
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
       });
+      console.log("[Server] Vite initialized.");
       app.use(vite.middlewares);
       
       // Catch-all to serve index.html through Vite
@@ -738,6 +741,7 @@ async function startServer() {
         }
       });
     } else {
+      console.log("[Server] Running in production mode.");
       app.use(express.static("dist"));
       app.get("*", (req, res) => {
         res.sendFile(path.resolve("dist/index.html"));
@@ -745,10 +749,10 @@ async function startServer() {
     }
 
     app.listen(Number(PORT), "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`[Server] Listening on http://0.0.0.0:${PORT}`);
     });
   } catch (error) {
-    console.error("Error starting server:", error);
+    console.error("[Server] Critical error during startup:", error);
   }
 }
 
