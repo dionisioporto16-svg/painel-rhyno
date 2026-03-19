@@ -31,7 +31,7 @@ const OPERACOES_POR_TURNO: Record<string, Record<string, string[]>> = {
     "SANTA FÉ DO SUL": ["silvio eduardo", "rogerio molina"],
     "ARARAQUARA": ["carlos barboza", "kelly"],
     "EMBU GUAÇU": ["ricardo garcia", "adson ferreira"],
-    "RIO CLARO": ["osmar gomes"],
+    "RIO CLARO": ["osmar gomes", "osmar"],
     "SIMONSEN": ["marcos rian"],
     "SANTA ADÉLIA": ["warley durante", "pedro oscar"],
     "SÃO JOSÉ DO RIO PRETO": ["fabio alex", "grace carrye"],
@@ -448,7 +448,12 @@ app.get("/api/sync", async (req, res) => {
           return getPriority(b.status) - getPriority(a.status);
         });
         
-        const fallback = candidatosValidos[0];
+        // Tenta priorizar candidatos que NÃO são motoristas-chave de outros turnos para esta cidade
+        const outrosTurnos = Object.keys(OPERACOES_POR_TURNO).filter(t => t !== turno);
+        const nomesOutrosTurnos = outrosTurnos.flatMap(t => (OPERACOES_POR_TURNO[t as keyof typeof OPERACOES_POR_TURNO] as any)[cidade] || []).map(n => normalizeText(n));
+        const candidatosNaoOutros = candidatosValidos.filter(c => !nomesOutrosTurnos.includes(normalizeText(c.nome)));
+        
+        const fallback = candidatosNaoOutros.length > 0 ? candidatosNaoOutros[0] : candidatosValidos[0];
         return {
           cidade,
           motorista: fallback.nomeOriginal,
@@ -682,7 +687,13 @@ app.get("/api/import-all", async (req, res) => {
               const getPriority = (s: string) => { if (s === "S") return 100; if (s === "REDE") return 50; return 1; };
               return getPriority(b.status) - getPriority(a.status);
             });
-            const fallback = candidatosValidos[0];
+
+            // Tenta priorizar candidatos que NÃO são motoristas-chave de outros turnos para esta cidade
+            const outrosTurnos = Object.keys(OPERACOES_POR_TURNO).filter(t => t !== turno);
+            const nomesOutrosTurnos = outrosTurnos.flatMap(t => (OPERACOES_POR_TURNO[t as keyof typeof OPERACOES_POR_TURNO] as any)[cidade] || []).map(n => normalizeText(n));
+            const candidatosNaoOutros = candidatosValidos.filter(c => !nomesOutrosTurnos.includes(normalizeText(c.nome)));
+            
+            const fallback = candidatosNaoOutros.length > 0 ? candidatosNaoOutros[0] : candidatosValidos[0];
             return { cidade, motorista: fallback.nomeOriginal, encontrado: true, status: fallback.status, coordenador: fallback.coordenador || null };
           }
 
