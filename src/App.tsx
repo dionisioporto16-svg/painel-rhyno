@@ -98,7 +98,7 @@ const OPERACOES: Record<string, string[]> = {
   "RIO CLARO": ["jose de claudio", "paulo cesar", "osmar de souza", "ubirajara"],
   "SIMONSEN": ["devani alves", "adriana da silva", "joao delcino"],
   "SANTA ADÉLIA": ["renato nunes", "pedro oscar", "jamil mattioli", "warley durante"],
-  "SÃO JOSÉ DO RIO PRETO": ["simone regina", "grace carryne", "antonio fabio", "fabio alex", "simone"],
+  "SÃO JOSÉ DO RIO PRETO": ["simone regina", "grace carryne", "simone", "grace carrye", "antonio fabio", "fabio alex"],
   "CHAPADÃO DO SUL": ["luciano", "antonio reinaldo", "antonio reinado", "robson arnaldo"],
   "RONDONÓPOLIS": ["jonh lennon", "jhon lennon", "john lennon", "esmeraldo de jesus", "esmeraldo", "john lenon"],
   "SÃO VICENTE": ["bruno frank", "alberico de souza", "alberico"],
