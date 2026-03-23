@@ -701,25 +701,8 @@ export default function App() {
     syncScale(selectedDate);
   }, []);
 
-  useEffect(() => {
-    if (data?.results) {
-      setIntervalosOk(prev => {
-        const next = { ...prev };
-        let changed = false;
-        data.results.forEach(r => {
-          if (r.status === "REDE" && next[r.cidade] !== true) {
-            next[r.cidade] = true;
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  }, [data]);
-
   const filteredResults = (data?.results || []).filter(r => {
-    const isRede = manualRede[r.cidade] !== undefined ? manualRede[r.cidade] : r.status === "REDE";
-    const isOk = isRede || intervalosOk[r.cidade];
+    const isOk = intervalosOk[r.cidade];
     
     const matchesSubTab = painelSubTab === "pendentes" ? !isOk : isOk;
     const matchesSearch = !searchTerm || (r.motorista && r.motorista.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -732,18 +715,15 @@ export default function App() {
     
     return matchesSubTab && matchesSearch && matchesCity && matchesStatus;
   }).sort((a, b) => {
-    const aRede = manualRede[a.cidade] !== undefined ? manualRede[a.cidade] : a.status === "REDE";
-    const bRede = manualRede[b.cidade] !== undefined ? manualRede[b.cidade] : b.status === "REDE";
-    const aOk = aRede || intervalosOk[a.cidade] || false;
-    const bOk = bRede || intervalosOk[b.cidade] || false;
+    const aOk = intervalosOk[a.cidade] || false;
+    const bOk = intervalosOk[b.cidade] || false;
     if (aOk === bOk) return 0;
     return aOk ? 1 : -1;
   });
 
   const totalItems = data?.results.length || 0;
   const confirmadosCount = data?.results.filter(r => {
-    const isRede = manualRede[r.cidade] !== undefined ? manualRede[r.cidade] : r.status === "REDE";
-    return isRede || intervalosOk[r.cidade];
+    return intervalosOk[r.cidade];
   }).length || 0;
   const pendentesCount = totalItems - confirmadosCount;
   const progressoValue = totalItems > 0 ? Math.round((confirmadosCount / totalItems) * 100) : 0;
@@ -1112,7 +1092,7 @@ export default function App() {
           <AnimatePresence mode="popLayout">
             {filteredResults.map((result) => {
               const isRede = manualRede[result.cidade] !== undefined ? manualRede[result.cidade] : result.status === "REDE";
-              const isIntervaloOk = isRede || intervalosOk[result.cidade];
+              const isIntervaloOk = intervalosOk[result.cidade];
               const displayMotorista = isRede ? "REDE" : (manualDrivers[result.cidade] || (result.encontrado ? result.motorista : "NÃO IDENTIFICADO"));
               const displayStatus = isRede ? "REDE" : (result.status || (result.encontrado ? "ATIVO" : "PENDENTE"));
 
@@ -1338,15 +1318,12 @@ export default function App() {
 
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold opacity-70">Intervalo</span>
-                        <label className={`relative inline-flex items-center ${isRede ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                        <label className="relative inline-flex items-center cursor-pointer">
                           <input 
                             type="checkbox" 
                             className="sr-only peer" 
                             checked={isIntervaloOk || false} 
-                            onChange={() => {
-                              if (!isRede) toggleIntervalo(result.cidade);
-                            }} 
-                            disabled={isRede}
+                            onChange={() => toggleIntervalo(result.cidade)} 
                           />
                           <div className={`w-10 h-5 rounded-full peer transition-all peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all ${
                             isDarkMode ? "bg-white/10 peer-checked:bg-emerald-500" : "bg-black/10 peer-checked:bg-emerald-500"
